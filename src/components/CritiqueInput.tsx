@@ -136,7 +136,7 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
     setIsFetchingFigma(true);
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/server/make-server-4fd6c9f5/figma/fetch`,
+        `https://${projectId}.supabase.co/functions/v1/super-worker/make-server-4fd6c9f5/figma/fetch`,
         {
           method: 'POST',
           headers: {

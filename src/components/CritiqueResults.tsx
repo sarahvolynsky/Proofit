@@ -166,7 +166,7 @@ Please generate the improved React and Tailwind code now.`;
             <DialogHeader>
                <DialogTitle>AI Fix Prompt</DialogTitle>
                <DialogDescription>
-                  Copy this prompt and paste it into your favorite coding assistant (Claude, ChatGPT, etc.) to apply the fixes.
+                  Copy this prompt and paste it into your favorite coding assistant (Claude, Cursor, Figma Make, etc.) to apply the fixes.
                </DialogDescription>
             </DialogHeader>
             <div className="flex-1 overflow-hidden bg-slate-50 rounded-lg border border-slate-200 p-4 relative group">
@@ -208,9 +208,7 @@ export function AnalysisView({ result }: { result: CritiqueResult }) {
       <div className="flex items-center gap-6 text-xs">
          {[
             { label: "Visual", score: result.scores.visual_design },
-            { label: "UX", score: result.scores.ux_clarity },
-            { label: "Code", score: result.scores.code_quality },
-            { label: "Security", score: result.scores.accessibility }
+            { label: "UX", score: result.scores.ux_clarity }
          ].map(({ label, score }) => (
             <div key={label} className="flex items-baseline gap-1.5">
                <span className="text-slate-500 font-medium">{label}</span>
@@ -256,6 +254,13 @@ export function AnalysisView({ result }: { result: CritiqueResult }) {
               </div>
            ))}
          </div>
+      </div>
+
+      {/* Helpful CTA */}
+      <div className="pt-4 mt-2 border-t border-slate-100">
+         <p className="text-slate-600 leading-relaxed">
+            Would you like me to generate a prompt you can paste in your coding assistant (Claude, Cursor, Figma Make, etc.) to apply these fixes automatically?
+         </p>
       </div>
     </div>
   );

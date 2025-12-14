@@ -3,7 +3,7 @@ import {
   LayoutGrid, Plus, Layers, User, 
   Search, PanelLeft, History, Sparkles,
   Home, Folder, Star, Users, Compass, Book, Settings, ChevronDown, Command,
-  FileText, ShieldCheck, Palette, MessageSquare, Gift, Zap
+  FileText, ShieldCheck, Palette, MessageSquare, Gift, Zap, MoreHorizontal, Trash2
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "motion/react";
@@ -19,6 +19,7 @@ interface LayoutProps {
   onNewChat?: () => void;
   onProjects?: () => void;
   onStarred?: () => void;
+  onDeleteChat?: (id: string) => void;
   isProjectsView?: boolean;
   isStarredView?: boolean;
 }
@@ -31,6 +32,7 @@ export function Layout({
   onNewChat,
   onProjects,
   onStarred,
+  onDeleteChat,
   isProjectsView,
   isStarredView
 }: LayoutProps) {
@@ -113,7 +115,7 @@ export function Layout({
         </div>
 
         {/* Scrollable Content (Your Chats) */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-3 flex flex-col gap-1 custom-scrollbar min-h-0">
+        <div className="flex-1 overflow-y-auto pt-2 px-3 flex flex-col gap-1 custom-scrollbar min-h-0">
           
           <NavItem 
             icon={<LayoutGrid />} 
@@ -153,22 +155,23 @@ export function Layout({
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                className="space-y-0.5 overflow-hidden"
+                transition={{ duration: 0.2 }}
+                className="space-y-0.5"
               >
                 {chatSessions.length === 0 && isExpanded && (
                   <div className="px-3 py-2 text-xs text-slate-400 italic">No chats yet</div>
                 )}
                 {chatSessions.map(session => (
-                  <NavItem 
+                  <ChatNavItem 
                     key={session.id}
-                    icon={<MessageSquare />} 
-                    label={session.title || "Untitled Chat"} 
+                    session={session}
                     active={currentSessionId === session.id}
                     expanded={isExpanded} 
                     onClick={() => {
                       if (!isExpanded) setIsExpanded(true);
                       onSelectSession?.(session.id);
                     }}
+                    onDelete={() => onDeleteChat?.(session.id)}
                   />
                 ))}
               </motion.div>
@@ -294,5 +297,120 @@ function NavItem({
         )}
       </AnimatePresence>
     </button>
+  );
+}
+
+function ChatNavItem({ 
+  session, 
+  active, 
+  expanded, 
+  onClick, 
+  onDelete
+}: { 
+  session: ChatSession, 
+  active?: boolean, 
+  expanded: boolean, 
+  onClick?: () => void,
+  onDelete?: () => void
+}) {
+  const [showMenu, setShowMenu] = useState(false);
+  const menuButtonRef = React.useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+
+  const handleMenuToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!showMenu && menuButtonRef.current) {
+      const rect = menuButtonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.top,
+        left: rect.right + 8 // 8px gap from the button
+      });
+    }
+    
+    setShowMenu(!showMenu);
+  };
+
+  return (
+    <div className="relative group">
+      {/* Main Chat Item - Clickable Area */}
+      <div 
+        onClick={onClick}
+        className={cn(
+          "flex items-center transition-all duration-300 relative w-full rounded-lg min-h-[36px] cursor-pointer",
+          expanded ? "px-3 py-2 gap-3" : "py-2 justify-center",
+          active ? "bg-slate-100 text-[#32404F] shadow-[0_4px_20px_rgb(0,0,0,0.02)]" : "text-slate-500 hover:bg-slate-50 hover:text-[#32404F]"
+        )}
+      >
+        {/* Icon */}
+        <div className={cn("transition-colors flex-shrink-0", active ? "text-[#32404F]" : "text-slate-500 group-hover:text-[#32404F]")}>
+          {React.cloneElement(<MessageSquare />, { size: 18, strokeWidth: 1.5 })}
+        </div>
+        
+        {/* Title and Menu Button */}
+        <AnimatePresence>
+          {expanded && (
+            <motion.div 
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1 flex items-center gap-2 overflow-hidden min-w-0"
+            >
+              <span className="text-sm font-medium truncate text-left flex-1">{session.title || "Untitled Chat"}</span>
+              
+              {/* Three-dot menu button */}
+              {onDelete && (
+                <div
+                  ref={menuButtonRef}
+                  onClick={handleMenuToggle}
+                  className="flex-shrink-0 ml-auto opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 transition-all p-1 hover:bg-slate-100 rounded cursor-pointer"
+                >
+                  <MoreHorizontal size={14} strokeWidth={2} />
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      
+      {/* Dropdown Menu */}
+      <AnimatePresence>
+        {showMenu && expanded && (
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 z-[60]" 
+              onClick={() => setShowMenu(false)}
+            />
+            
+            {/* Menu */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, x: -5 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.95, x: -5 }}
+              transition={{ duration: 0.15 }}
+              style={{
+                top: menuPosition.top,
+                left: menuPosition.left
+              }}
+              className="fixed z-[70] bg-white rounded-lg shadow-lg border border-slate-200 py-1 w-[140px]"
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMenu(false);
+                  onDelete?.();
+                }}
+                className="w-full px-2.5 py-1.5 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+              >
+                <Trash2 size={14} strokeWidth={2} />
+                <span>Delete chat</span>
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

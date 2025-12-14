@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Loader2, Search, CheckCircle2, Wand2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion } from "motion/react";
+import { AnimatedProofitLogo } from "./AnimatedProofitLogo";
 
 interface ProcessingViewProps {
   attachment?: string | null;
@@ -78,14 +79,26 @@ export function ProcessingView({ attachment, code }: ProcessingViewProps) {
 
         {/* Steps Section */}
         <div className="flex flex-col items-center">
-          <div className="size-12 mb-8 relative flex items-center justify-center">
-             <div className="absolute inset-0 border border-slate-200 rounded-full" />
-             <motion.div 
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-0 border border-t-[#E6602E] border-transparent rounded-full"
-             />
-          </div>
+          {/* Animated Logo */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="w-20 h-16 mb-10 relative"
+          >
+            <AnimatedProofitLogo />
+          </motion.div>
+
+          {/* Analyzing Text */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="mb-8 text-center"
+          >
+            <h2 className="text-sm font-semibold text-[#32404F] mb-1">Analyzing Design</h2>
+            <p className="text-xs text-slate-400">Running critique agent...</p>
+          </motion.div>
 
           <div className="flex flex-col gap-1 w-64">
             <StepItem label="Extracting tokens" status={step > 0 ? "done" : step === 0 ? "active" : "waiting"} index={0} />

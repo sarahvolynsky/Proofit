@@ -6,13 +6,13 @@ import { ChatInterface } from "./components/ChatInterface";
 import { Projects } from "./components/Projects";
 import { Starred } from "./components/Starred";
 import { analyzeCode, CritiqueResult, Goal, ChatSession, Message } from "./lib/agent";
-import { getRelevantPatterns } from "./lib/patterns";
 
 export default function App() {
   const [status, setStatus] = useState<"idle" | "processing" | "complete" | "projects" | "starred">("idle");
   const [goal, setGoal] = useState<Goal>("conversion");
   const [code, setCode] = useState("");
   const [attachment, setAttachment] = useState<string | null>(null);
+  const [isProcessingFollowUp, setIsProcessingFollowUp] = useState(false);
   
   // Chat State
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
@@ -23,10 +23,9 @@ export default function App() {
   const handleCritique = async () => {
     if (!code.trim() && !attachment) return;
     setStatus("processing");
+    
     try {
-      const data = await analyzeCode(code, goal, attachment || undefined);
-      
-      // Create new session
+      // Create the session immediately with user message
       let title = code.split(/[\n\s]+/).filter(w => w.length > 0).slice(0, 4).join(" ");
       if (!title && attachment) {
         title = "Design Critique";
@@ -35,46 +34,67 @@ export default function App() {
         title = `Critique ${chatSessions.length + 1}`;
       }
       
+      const sessionId = Date.now().toString();
+      const userMessage: Message = {
+        id: '1',
+        role: 'user',
+        content: code || "Please critique this design",
+        type: 'text',
+        attachment: attachment || undefined
+      };
+
+      // Create session with just the user message initially
       const newSession: ChatSession = {
-        id: Date.now().toString(),
+        id: sessionId,
         title: title,
         date: new Date(),
         code: code,
         goal: goal,
-        messages: [
-          {
-            id: '1',
-            role: 'user',
-            content: code || "Please critique this design",
-            type: 'text',
-            attachment: attachment || undefined
-          },
-          {
-            id: '2',
-            role: 'agent',
-            content: data,
-            type: 'critique'
-          }
-        ]
+        messages: [userMessage]
       };
 
       setChatSessions(prev => [newSession, ...prev]);
-      setCurrentSessionId(newSession.id);
-      setStatus("complete");
+      setCurrentSessionId(sessionId);
+      setStatus("complete"); // Show chat interface immediately
+
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Generate mock critique (no backend call)
+      const critiqueResult = await analyzeCode(code, goal, attachment || undefined);
+      
+      // Add the critique message to the session
+      const critiqueMessage: Message = {
+        id: '2',
+        role: 'agent',
+        content: critiqueResult,
+        type: 'critique'
+      };
+
+      setChatSessions(prev => prev.map(session => {
+        if (session.id === sessionId) {
+          return {
+            ...session,
+            messages: [userMessage, critiqueMessage]
+          };
+        }
+        return session;
+      }));
     } catch (error) {
-      console.error(error);
+      console.error('Error during critique:', error);
       setStatus("idle");
     }
   };
 
-  const handleSendMessage = (text: string) => {
+  const handleSendMessage = (text: string, attachment?: string) => {
     if (!currentSessionId) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: text,
-      type: 'text'
+      type: 'text',
+      attachment: attachment
     };
 
     // Update session with user message
@@ -186,6 +206,15 @@ Please generate the improved React and Tailwind code now.`;
     setStatus("starred");
   };
 
+  const handleDeleteChat = (id: string) => {
+    setChatSessions(prev => prev.filter(session => session.id !== id));
+    
+    // If we're deleting the current session, go back to idle
+    if (id === currentSessionId) {
+      handleNewChat();
+    }
+  };
+
   return (
     <Layout 
       chatSessions={chatSessions}
@@ -194,6 +223,7 @@ Please generate the improved React and Tailwind code now.`;
       onNewChat={handleNewChat}
       onProjects={handleProjects}
       onStarred={handleStarred}
+      onDeleteChat={handleDeleteChat}
       isProjectsView={status === "projects"}
       isStarredView={status === "starred"}
     >
@@ -217,6 +247,7 @@ Please generate the improved React and Tailwind code now.`;
           onSendMessage={handleSendMessage}
           goal={currentSession.goal}
           onReset={handleReset}
+          isProcessing={isProcessingFollowUp}
         />
       )}
       {status === "projects" && (
