@@ -5,9 +5,8 @@ import { ProcessingView } from "./components/ProcessingView";
 import { ChatInterface } from "./components/ChatInterface";
 import { Projects } from "./components/Projects";
 import { Starred } from "./components/Starred";
-import { analyzeCode, sendChatMessage, CritiqueResult, Goal, ChatSession, Message } from "./lib/agent";
+import { analyzeCode, CritiqueResult, Goal, ChatSession, Message } from "./lib/agent";
 import { getRelevantPatterns } from "./lib/patterns";
-import { projectId, publicAnonKey } from "./utils/supabase/info";
 
 export default function App() {
   const [status, setStatus] = useState<"idle" | "processing" | "complete" | "projects" | "starred">("idle");
@@ -68,8 +67,8 @@ export default function App() {
     }
   };
 
-  const handleSendMessage = async (text: string) => {
-    if (!currentSessionId || !currentSession) return;
+  const handleSendMessage = (text: string) => {
+    if (!currentSessionId) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -89,84 +88,57 @@ export default function App() {
       return session;
     }));
 
-    // Test endpoints sequentially
-    try {
-      console.log('=== Testing server connectivity ===');
+    // Check if user is asking for a prompt
+    const isPromptRequest = /generate.*prompt|create.*prompt|get.*prompt|prompt.*this|fix.*prompt/i.test(text);
+
+    // Simulate Agent response
+    setTimeout(() => {
+      let responseContent = "I've received your feedback. As this is a prototype, I can't refine the critique further yet, but I've noted your request!";
       
-      // Test 0: Root endpoint
-      console.log('0. Testing root endpoint (no auth)...');
-      const rootUrl = `https://${projectId}.supabase.co/functions/v1/server`;
-      try {
-        const rootResponse = await fetch(rootUrl);
-        console.log('✓ Root response:', rootResponse.ok, rootResponse.status);
-        if (rootResponse.ok) {
-          const rootData = await rootResponse.json();
-          console.log('✓ Root data:', rootData);
-        } else {
-          const errorText = await rootResponse.text();
-          console.error('✗ Root error:', errorText);
+      if (isPromptRequest && currentSession) {
+        // Find the critique result in the session messages
+        const critiqueMsg = currentSession.messages.find(m => m.type === 'critique');
+        if (critiqueMsg && typeof critiqueMsg.content !== 'string') {
+          const result = critiqueMsg.content as CritiqueResult;
+          
+          // Generate the fix prompt
+          const issuesList = result.issues.map((issue, i) => 
+            `${i+1}. [${issue.severity}] ${issue.title} (${issue.category.toUpperCase()})
+   Problem: ${issue.problem}
+   Fix Steps:
+${issue.fix_steps.map((step, idx) => `      ${idx + 1}. ${step}`).join('\n')}`
+          ).join("\n\n");
+          
+          responseContent = `You are an expert frontend developer and designer. I need you to apply design critique feedback to improve my React/Tailwind codebase.
+
+CRITIQUE SUMMARY:
+${result.roast.one_liner}
+
+OVERALL SCORES:
+• Visual Design: ${result.scores.visual_design}/10
+• UX Clarity: ${result.scores.ux_clarity}/10
+• Code Quality: ${result.scores.code_quality}/10
+• Accessibility: ${result.scores.accessibility}/10
+
+ISSUES TO ADDRESS (${result.issues.length} total):
+
+${issuesList}
+
+REQUIREMENTS:
+1. Apply all the fix steps listed above to the code
+2. Maintain the existing design language and component structure
+3. Use Tailwind CSS utility classes following best practices
+4. Ensure all changes improve accessibility and code quality
+5. Provide the complete updated code with clear comments explaining changes
+
+Please generate the improved React and Tailwind code now.`;
         }
-      } catch (error) {
-        console.error('✗ Root test failed:', error);
       }
-      
-      // Test 1: Health check
-      console.log('1. Testing health endpoint...');
-      const healthUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-4fd6c9f5/health`;
-      try {
-        const healthResponse = await fetch(healthUrl);
-        console.log('✓ Health check response:', healthResponse.ok, healthResponse.status);
-        if (healthResponse.ok) {
-          const healthData = await healthResponse.json();
-          console.log('✓ Health check data:', healthData);
-        }
-      } catch (error) {
-        console.error('✗ Health check failed:', error);
-      }
-
-      // Test 2: Echo endpoint
-      console.log('2. Testing echo endpoint...');
-      const echoUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-4fd6c9f5/test/echo`;
-      try {
-        const echoResponse = await fetch(echoUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({ test: 'hello', message: text }),
-        });
-        console.log('✓ Echo response:', echoResponse.ok, echoResponse.status);
-        if (echoResponse.ok) {
-          const echoData = await echoResponse.json();
-          console.log('✓ Echo data:', echoData);
-        } else {
-          const errorText = await echoResponse.text();
-          console.error('✗ Echo error:', errorText);
-        }
-      } catch (error) {
-        console.error('✗ Echo test failed:', error);
-      }
-
-      console.log('3. Testing Anthropic chat endpoint...');
-    } catch (error) {
-      console.error('Server tests failed:', error);
-    }
-
-    // Call the real API for response
-    try {
-      const updatedSession = chatSessions.find(s => s.id === currentSessionId);
-      if (!updatedSession) return;
-
-      // Get all messages including the new user message for context
-      const allMessages = [...updatedSession.messages, userMsg];
-      
-      const responseText = await sendChatMessage(allMessages, text, currentSession.goal);
 
       const agentMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'agent',
-        content: responseText,
+        content: responseContent,
         type: 'text'
       };
 
@@ -179,27 +151,7 @@ export default function App() {
         }
         return session;
       }));
-    } catch (error) {
-      console.error('Error sending message:', error);
-      
-      // Fallback error message
-      const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'agent',
-        content: "I apologize, but I encountered an error processing your message. Please try again.",
-        type: 'text'
-      };
-
-      setChatSessions(prev => prev.map(session => {
-        if (session.id === currentSessionId) {
-          return {
-            ...session,
-            messages: [...session.messages, errorMsg]
-          };
-        }
-        return session;
-      }));
-    }
+    }, 1000);
   };
 
   const handleSelectSession = (id: string) => {

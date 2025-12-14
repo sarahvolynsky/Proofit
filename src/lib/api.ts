@@ -37,49 +37,27 @@ export async function callAnthropicAPI(
   model: string = 'claude-3-5-sonnet-20241022',
   maxTokens: number = 4096
 ): Promise<AnthropicResponse> {
-  const url = `${BASE_URL}/make-server-4fd6c9f5/anthropic/chat`;
-  console.log('Calling Anthropic API at:', url);
-  console.log('With system prompt:', system?.substring(0, 100));
-  console.log('With', messages.length, 'messages');
-  
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`,
-      },
-      body: JSON.stringify({
-        messages,
-        system,
-        model,
-        max_tokens: maxTokens,
-      }),
-    });
+  const response = await fetch(`${BASE_URL}/make-server-4fd6c9f5/anthropic/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${publicAnonKey}`,
+    },
+    body: JSON.stringify({
+      messages,
+      system,
+      model,
+      max_tokens: maxTokens,
+    }),
+  });
 
-    console.log('Response status:', response.status);
-    console.log('Response ok:', response.ok);
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Anthropic API error response:', error);
-      throw new Error(`Failed to call Anthropic API: ${response.status} ${error}`);
-    }
-
-    const data = await response.json();
-    console.log('Successfully received response from Anthropic API');
-    return data;
-  } catch (error) {
-    console.error('Fetch error details:', error);
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      console.error('Network error - possible causes:');
-      console.error('1. CORS issue');
-      console.error('2. Edge function not deployed');
-      console.error('3. Network connectivity');
-      console.error('URL being called:', url);
-    }
-    throw error;
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Anthropic API error:', error);
+    throw new Error(`Failed to call Anthropic API: ${response.status} ${error}`);
   }
+
+  return response.json();
 }
 
 export async function* streamAnthropicAPI(
