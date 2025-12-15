@@ -43,25 +43,54 @@ export interface AnthropicResponse {
 export async function callWorkflow(
   inputText: string, 
   mode: 'critique' | 'chat' = 'critique',
-  imageDataUrl?: string
+  imageDataUrls?: string[],
+  conversationHistory?: Array<{role: string, content: Array<{type: string, text: string}>}>,
+  audience?: string,
+  platform?: string
 ): Promise<{ output_text: string }> {
-  const body: { input_as_text: string; mode: string; image?: string; image_media_type?: string } = {
+  const body: { 
+    input_as_text: string; 
+    mode: string; 
+    images?: Array<{data: string; media_type: string}>;
+    conversation_history?: Array<{role: string, content: Array<{type: string, text: string}>}>;
+    audience?: string;
+    platform?: string;
+  } = {
     input_as_text: inputText,
     mode,
   };
+  
+  if (audience) {
+    body.audience = audience;
+  }
+  
+  if (platform) {
+    body.platform = platform;
+  }
+  
+  if (conversationHistory && conversationHistory.length > 0) {
+    body.conversation_history = conversationHistory;
+  }
 
-  // If image is provided, extract base64 data and media type
-  if (imageDataUrl) {
-    // Data URL format: data:image/png;base64,<base64data>
-    const matches = imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
-    if (matches) {
-      body.image = matches[2]; // base64 data
-      body.image_media_type = matches[1]; // e.g., image/png
-    } else {
-      // If it's already just base64, assume PNG
-      body.image = imageDataUrl;
-      body.image_media_type = 'image/png';
-    }
+  // If images are provided, extract base64 data and media type for each (up to 3)
+  if (imageDataUrls && imageDataUrls.length > 0) {
+    const imagesToSend = imageDataUrls.slice(0, 3); // Limit to 3 images
+    body.images = imagesToSend.map((imageDataUrl) => {
+      // Data URL format: data:image/png;base64,<base64data>
+      const matches = imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        return {
+          data: matches[2], // base64 data
+          media_type: matches[1] // e.g., image/png
+        };
+      } else {
+        // If it's already just base64, assume PNG
+        return {
+          data: imageDataUrl,
+          media_type: 'image/png'
+        };
+      }
+    });
   }
 
   // Use ChatKit server workflow endpoint

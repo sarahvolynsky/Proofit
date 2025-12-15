@@ -9,7 +9,7 @@ import Header from "../imports/Header";
 
 interface ChatInterfaceProps {
   messages: Message[];
-  onSendMessage: (msg: string, attachment?: string) => void;
+  onSendMessage: (msg: string, attachments?: string[]) => void;
   goal: Goal;
   onReset: () => void;
   isProcessing?: boolean;
@@ -17,7 +17,7 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({ messages, onSendMessage, goal, onReset, isProcessing }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
-  const [attachment, setAttachment] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -53,23 +53,51 @@ export function ChatInterface({ messages, onSendMessage, goal, onReset, isProces
   }, [messages.length]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setAttachment(result);
-    };
-    reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    const remainingSlots = 3 - attachments.length;
+    const filesToAdd = imageFiles.slice(0, remainingSlots);
+    
+    if (filesToAdd.length === 0) {
+      if (attachments.length >= 3) {
+        alert('Maximum 3 images allowed');
+      } else {
+        alert('Please select image files only');
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+    
+    const newAttachments: string[] = [];
+    let loadedCount = 0;
+    
+    filesToAdd.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        newAttachments.push(e.target?.result as string);
+        loadedCount++;
+        if (loadedCount === filesToAdd.length) {
+          setAttachments([...attachments, ...newAttachments]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const sendMessage = () => {
-    if (!input.trim() && !attachment) return;
+    if (!input.trim() && attachments.length === 0) return;
     setIsThinking(true);
-    onSendMessage(input, attachment || undefined);
+    onSendMessage(input, attachments.length > 0 ? attachments : undefined);
     setInput("");
-    setAttachment(null);
+    setAttachments([]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -118,21 +146,36 @@ export function ChatInterface({ messages, onSendMessage, goal, onReset, isProces
     e.stopPropagation();
     setIsDragging(false);
     
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
 
-    // Check if it's an image
-    if (!file.type.startsWith('image/')) {
-      console.warn('Only image files are supported');
+    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      alert('Please drop image files only');
       return;
     }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setAttachment(result);
-    };
-    reader.readAsDataURL(file);
+    
+    const remainingSlots = 3 - attachments.length;
+    if (remainingSlots === 0) {
+      alert('Maximum 3 images allowed');
+      return;
+    }
+    
+    const filesToAdd = imageFiles.slice(0, remainingSlots);
+    const newAttachments: string[] = [];
+    let loadedCount = 0;
+    
+    filesToAdd.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        newAttachments.push(e.target?.result as string);
+        loadedCount++;
+        if (loadedCount === filesToAdd.length) {
+          setAttachments([...attachments, ...newAttachments]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   return (
@@ -278,21 +321,23 @@ export function ChatInterface({ messages, onSendMessage, goal, onReset, isProces
           <div className="w-full max-w-3xl relative pointer-events-auto">
             <div className={cn(
               "relative bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 transition-all focus-within:shadow-[0_8px_25px_rgb(0,0,0,0.05)]",
-              attachment ? "rounded-[24px]" : "rounded-full"
+              attachments.length > 0 ? "rounded-[24px]" : "rounded-full"
             )}>
                
                {/* Attachment Preview Above Input */}
-               {attachment && (
-                 <div className="px-[14px] pt-[14px] pb-1">
-                   <div className="relative group/attachment w-[72px] h-[72px] rounded-xl overflow-hidden border border-slate-100 shadow-sm select-none">
-                     <img src={attachment} alt="Attachment" className="w-full h-full object-cover" />
-                     <button 
-                       onClick={() => setAttachment(null)}
-                       className="absolute top-1.5 right-1.5 w-5 h-5 bg-white rounded-md flex items-center justify-center shadow-sm hover:bg-slate-50 transition-all duration-200 cursor-pointer z-10 opacity-0 group-hover/attachment:opacity-100"
-                     >
-                       <X size={12} className="text-slate-600" strokeWidth={2.5} />
-                     </button>
-                   </div>
+               {attachments.length > 0 && (
+                 <div className="px-[14px] pt-[14px] pb-1 flex flex-wrap gap-2">
+                   {attachments.map((attachment, index) => (
+                     <div key={index} className="relative group/attachment w-[72px] h-[72px] rounded-xl overflow-hidden border border-slate-100 shadow-sm select-none">
+                       <img src={attachment} alt={`Attachment ${index + 1}`} className="w-full h-full object-cover" />
+                       <button 
+                         onClick={() => setAttachments(attachments.filter((_, i) => i !== index))}
+                         className="absolute top-1.5 right-1.5 w-5 h-5 bg-white rounded-md flex items-center justify-center shadow-sm hover:bg-slate-50 transition-all duration-200 cursor-pointer z-10 opacity-0 group-hover/attachment:opacity-100"
+                       >
+                         <X size={12} className="text-slate-600" strokeWidth={2.5} />
+                       </button>
+                     </div>
+                   ))}
                  </div>
                )}
 
@@ -302,6 +347,7 @@ export function ChatInterface({ messages, onSendMessage, goal, onReset, isProces
                  ref={fileInputRef}
                  type="file"
                  accept="image/*"
+                 multiple
                  onChange={handleFileSelect}
                  className="hidden"
                />
@@ -337,10 +383,10 @@ export function ChatInterface({ messages, onSendMessage, goal, onReset, isProces
                   </button>
                   <button 
                     onClick={sendMessage}
-                    disabled={!input.trim() && !attachment || isProcessing}
+                    disabled={(!input.trim() && attachments.length === 0) || isProcessing}
                     className={cn(
                       "size-8 rounded-full text-white flex items-center justify-center transition-all shadow-sm hover:shadow focus:outline-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
-                      input.trim() || attachment
+                      input.trim() || attachments.length > 0
                         ? "bg-[#E6602E] hover:bg-[#cc5529]" 
                         : "bg-[#32404F] hover:bg-[#25303b]"
                     )}
@@ -376,7 +422,7 @@ function formatPlainText(text: string): string {
   return text.trim();
 }
 
-// Parse and format structured text with proper typography and hierarchy
+// Parse and format structured text with simplified, clean design
 function formatStructuredText(text: string): React.ReactNode {
   const lines = text.split('\n');
   const elements: React.ReactNode[] = [];
@@ -384,14 +430,13 @@ function formatStructuredText(text: string): React.ReactNode {
   let inIssue = false;
   let inFix = false;
   let inRecommendations = false;
-  let currentIssueKey = '';
 
   const flushParagraph = (key: string) => {
     if (currentParagraph.length > 0) {
       const content = currentParagraph.join(' ').trim();
       if (content) {
         elements.push(
-          <div key={key} className="text-sm text-[#32404F] leading-relaxed mb-2">
+          <div key={key} className="text-base text-[#32404F] leading-relaxed mb-3">
             {content}
           </div>
         );
@@ -412,60 +457,62 @@ function formatStructuredText(text: string): React.ReactNode {
       if (sectionText.includes('Opening:')) {
         const openingText = sectionText.replace('Opening:', '').trim();
         elements.push(
-          <div key={`opening-${i}`} className="text-xl font-semibold text-[#32404F] mb-6 leading-relaxed pb-4 border-b border-slate-200">
+          <div key={`opening-${i}`} className="text-xl font-bold text-[#32404F] mb-4 leading-tight tracking-tight">
             {openingText}
-          </div>
-        );
-      } else if (sectionText.includes("I'm evaluating:")) {
-        elements.push(
-          <div key={`evaluating-${i}`} className="text-base font-semibold text-[#32404F] mb-4 mt-6 flex items-center gap-2">
-            <div className="w-1 h-5 bg-[#E6602E] rounded-full"></div>
-            <span>{sectionText}</span>
           </div>
         );
       } else if (sectionText.includes("What's failing")) {
         elements.push(
-          <div key={`failing-${i}`} className="text-base font-semibold text-[#32404F] mb-5 mt-8 pt-6 border-t border-slate-200 flex items-center gap-2">
-            <div className="w-1 h-5 bg-red-500 rounded-full"></div>
-            <span>{sectionText}</span>
+          <div key={`failing-${i}`} className="text-lg font-bold text-[#32404F] mb-3 mt-4 tracking-tight">
+            {sectionText}
           </div>
         );
         inIssue = true;
         inRecommendations = false;
-      } else if (sectionText.includes("How to improve")) {
+      } else if (sectionText.includes("Quick improvements") || sectionText.includes("Quick wins") || 
+                 sectionText.includes("In addition to the previous points") || 
+                 sectionText.includes("Here are additional considerations") ||
+                 sectionText.includes("additional considerations")) {
         flushParagraph(`para-before-rec-${i}`);
         elements.push(
-          <div key={`improve-${i}`} className="text-base font-semibold text-[#32404F] mb-4 mt-8 pt-6 border-t border-slate-200 flex items-center gap-2">
-            <div className="w-1 h-5 bg-blue-500 rounded-full"></div>
-            <span>{sectionText}</span>
+          <div key={`quick-${i}`} className="text-lg font-bold text-[#32404F] mb-2 mt-4 tracking-tight">
+            {sectionText}
           </div>
         );
         inRecommendations = true;
         inIssue = false;
         inFix = false;
+      } else if (sectionText.match(/^P[0-2]\s+Priority$/i) || sectionText.match(/^Page\s+Intent$/i) || 
+                 sectionText.match(/^Document\s+Outline$/i) || sectionText.match(/^Title\s+Tag/i) ||
+                 sectionText.match(/^Meta\s+Description/i) || sectionText.match(/^Internal\s+Linking/i) ||
+                 sectionText.match(/^Technical\s+Verification/i)) {
+        // SEO section headers - reduced spacing
+        flushParagraph(`para-before-seo-${i}`);
+        elements.push(
+          <div key={`seo-header-${i}`} className="text-base font-bold text-[#32404F] mb-2 mt-3 tracking-tight">
+            {sectionText}
+          </div>
+        );
       }
     } 
     // Priority issue header (P0 —, P1 —, P2 —)
-    else if (trimmed.match(/^P[0-2]\s*[—–-]/)) {
+    // Check this BEFORE bullet points to avoid treating priority titles as bullets
+    else if (trimmed.match(/^P[0-2]\s*[—–-]/) || trimmed.match(/^-\s*P[0-2]\s*[—–-]/)) {
       flushParagraph(`para-before-issue-${i}`);
-      const priorityMatch = trimmed.match(/^(P[0-2])\s*[—–-]\s*(.+)/);
+      // Handle both "P1 — Title" and "- P1 — Title" formats
+      const priorityMatch = trimmed.match(/^-?\s*(P[0-2])\s*[—–-]\s*(.+)/);
       if (priorityMatch) {
         const [, priority, title] = priorityMatch;
-        const priorityConfig = priority === 'P0' 
-          ? { color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-700' }
-          : priority === 'P1' 
-          ? { color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-700' }
-          : { color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-yellow-100 text-yellow-700' };
-        currentIssueKey = `issue-${i}`;
+        const priorityColor = priority === 'P0' ? 'text-red-600' : priority === 'P1' ? 'text-orange-600' : 'text-yellow-600';
         elements.push(
-          <div key={currentIssueKey} className={`mb-6 pb-5 border-b border-slate-200 last:border-b-0 ${priorityConfig.bg} rounded-xl p-4 border ${priorityConfig.border}`}>
-            <div className="flex items-center gap-2 mb-3">
-              <span className={`text-xs font-bold px-2 py-1 rounded-md ${priorityConfig.badge}`}>
+          <div key={`issue-${i}`} className="mb-3 pb-3 border-b border-slate-100 last:border-b-0">
+            <div className="flex items-baseline gap-3 mb-2">
+              <span className={`text-sm font-black ${priorityColor} tracking-wide flex-shrink-0`}>
                 {priority}
               </span>
-              <div className={`text-base font-semibold ${priorityConfig.color} flex-1`}>
+              <span className="text-base font-bold text-[#32404F] leading-tight">
                 {title}
-              </div>
+              </span>
             </div>
           </div>
         );
@@ -473,83 +520,95 @@ function formatStructuredText(text: string): React.ReactNode {
         inFix = false;
       }
     } 
-    // Issue metadata labels
-    else if (trimmed.match(/^(Description|User Impact|Design Principle Violation|Measurable consequences|Real-world examples):/)) {
+    // Issue content - show "Problem:" label, skip other verbose labels
+    else if (trimmed.match(/^(Problem|Description):/)) {
       flushParagraph(`para-before-meta-${i}`);
       const match = trimmed.match(/^([^:]+):\s*(.+)/);
       if (match) {
-        const [, label, content] = match;
+        const [, , content] = match;
         elements.push(
-          <div key={`meta-${i}`} className="mb-3 pl-3 border-l-2 border-slate-200">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{label}</div>
-            <div className="text-sm text-[#32404F] leading-relaxed">{content}</div>
+          <div key={`meta-${i}`} className="mb-3 text-base text-[#32404F] leading-relaxed">
+            {content}
           </div>
         );
       }
+    }
+    // Skip verbose metadata labels - just show content
+    else if (trimmed.match(/^(User Impact|Design Principle Violation|Measurable consequences|Real-world examples|Location|Visual description):/)) {
+      flushParagraph(`para-before-meta-${i}`);
+      const match = trimmed.match(/^([^:]+):\s*(.+)/);
+      if (match) {
+        const [, , content] = match;
+        // Just show the content without the verbose label
+        if (content.trim()) {
+          elements.push(
+          <div key={`meta-${i}`} className="mb-2 text-sm text-slate-600 leading-relaxed">
+            {content}
+          </div>
+          );
+        }
+      }
     } 
-    // Fix section header
+    // Fix section header - make it prominent and actionable
     else if (trimmed.startsWith('Fix:')) {
       flushParagraph(`para-before-fix-${i}`);
       inFix = true;
       const fixContent = trimmed.replace(/^Fix:\s*/, '');
       elements.push(
-        <div key={`fix-header-${i}`} className="mt-5 mb-3 bg-slate-50 rounded-lg p-3 border border-slate-200">
-          <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2 flex items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-            Fix
-          </div>
+        <div key={`fix-header-${i}`} className="mt-3 mb-2">
+          <div className="text-base font-bold text-[#E6602E] mb-2 tracking-tight">How to fix:</div>
         </div>
       );
       if (fixContent) {
         currentParagraph.push(fixContent);
       }
     } 
-    // Numbered list items
+    // Numbered list items - emphasize fixes
     else if (trimmed.match(/^\d+\.\s/)) {
       flushParagraph(`para-before-list-${i}`);
       const match = trimmed.match(/^(\d+)\.\s*(.+)/);
       if (match) {
         const [, num, content] = match;
+        // Make fix steps more prominent
+        const isFixStep = inFix;
         elements.push(
-          <div key={`list-${i}`} className="text-sm text-[#32404F] leading-relaxed mb-3 flex items-start group">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-600 font-semibold text-xs flex items-center justify-center mr-3 mt-0.5 group-hover:bg-slate-200 transition-colors">
-              {num}
-            </span>
-            <span className="flex-1 pt-0.5">{content}</span>
+          <div key={`list-${i}`} className={`leading-relaxed mb-2 flex items-start ${isFixStep ? 'text-base text-[#32404F] font-medium' : 'text-sm text-[#32404F]'}`}>
+            <span className={`font-bold mr-3 flex-shrink-0 min-w-[28px] text-lg ${isFixStep ? 'text-[#E6602E]' : 'text-slate-500'}`}>{num}.</span>
+            <span className="flex-1">{content}</span>
           </div>
         );
       }
     } 
-    // Bullet points
-    else if (trimmed.startsWith('- ')) {
+    // Bullet points (but NOT priority titles that might start with "- P1 —")
+    else if (trimmed.startsWith('- ') && !trimmed.match(/^-\s*P[0-2]\s*[—–-]/)) {
       flushParagraph(`para-before-bullet-${i}`);
       const content = trimmed.replace(/^-\s/, '');
       
       if (inRecommendations) {
-        // Recommendation items with label: description format
+        // Recommendation items - simplified with tighter spacing
         const colonIndex = content.indexOf(':');
         if (colonIndex > 0) {
           const label = content.substring(0, colonIndex);
           const description = content.substring(colonIndex + 1).trim();
           elements.push(
-            <div key={`rec-${i}`} className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-              <div className="text-sm font-semibold text-[#32404F] mb-1">{label}</div>
-              <div className="text-sm text-slate-600 leading-relaxed">{description}</div>
+            <div key={`rec-${i}`} className="mb-1">
+              <span className="text-sm font-semibold text-[#32404F]">{label}:</span>
+              <span className="text-sm text-slate-600 ml-2 leading-relaxed">{description}</span>
             </div>
           );
         } else {
           elements.push(
-            <div key={`rec-${i}`} className="text-sm text-[#32404F] leading-relaxed ml-6 mb-2.5 flex items-start">
-              <span className="text-blue-500 mr-3 mt-1.5 text-lg leading-none">•</span>
-              <span className="flex-1 pt-0.5">{content}</span>
+            <div key={`rec-${i}`} className="text-sm text-[#32404F] leading-relaxed mb-1 flex items-start">
+              <span className="text-slate-400 mr-3 flex-shrink-0 w-4 text-center">•</span>
+              <span className="flex-1">{content}</span>
             </div>
           );
         }
       } else {
         elements.push(
-          <div key={`bullet-${i}`} className="text-sm text-[#32404F] leading-relaxed ml-6 mb-2.5 flex items-start">
-            <span className="text-slate-400 mr-3 mt-1.5 text-lg leading-none">•</span>
-            <span className="flex-1 pt-0.5">{content}</span>
+          <div key={`bullet-${i}`} className="text-sm text-[#32404F] leading-relaxed mb-2 flex items-start">
+            <span className="text-slate-400 mr-3 flex-shrink-0 w-4 text-center">•</span>
+            <span className="flex-1">{content}</span>
           </div>
         );
       }
@@ -559,6 +618,9 @@ function formatStructuredText(text: string): React.ReactNode {
       flushParagraph(`para-${i}`);
       if (!inIssue && !inFix && !inRecommendations) {
         elements.push(<div key={`spacer-${i}`} className="h-3" />);
+      } else if (inRecommendations) {
+        // Tighter spacing in recommendations section - no extra spacer needed
+        // Skip adding spacer to keep it compact
       }
     } 
     // Regular text content
@@ -568,6 +630,18 @@ function formatStructuredText(text: string): React.ReactNode {
         // This will be caught by the numbered list handler
         continue;
       }
+      // Check if this is the closing sentence in recommendations section
+      if (inRecommendations && (trimmed.includes("These changes") || trimmed.includes("These improvements") || trimmed.includes("will enhance") || trimmed.includes("will further"))) {
+        flushParagraph(`para-before-closing-${i}`);
+        elements.push(
+          <div key={`closing-${i}`} className="text-sm text-[#32404F] leading-relaxed mt-2 mb-0">
+            {trimmed}
+          </div>
+        );
+        // Reset recommendations flag after closing sentence
+        inRecommendations = false;
+        continue;
+      }
       currentParagraph.push(trimmed);
     }
   }
@@ -575,7 +649,7 @@ function formatStructuredText(text: string): React.ReactNode {
   // Flush any remaining paragraph
   flushParagraph('final-para');
 
-  return <div className="space-y-1">{elements}</div>;
+  return <div className="space-y-2">{elements}</div>;
 }
 
 const messageVariants = {
@@ -600,28 +674,32 @@ function MessageItem({ message }: { message: Message }) {
      return (
        <motion.div variants={messageVariants} className="flex justify-start w-full">
           <div className="flex flex-col w-full items-start">
-             {/* Show attachment image if present with critique */}
-             {message.attachment && (
-               <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-full cursor-pointer hover:shadow-md transition-shadow">
-                 <img 
-                   src={message.attachment} 
-                   alt="Design being critiqued" 
-                   className="max-w-full h-auto max-h-[400px] md:max-h-[500px] object-contain bg-slate-50"
-                   onClick={(e) => {
-                     // Open image in new tab/window for full view
-                     const newWindow = window.open();
-                     if (newWindow) {
-                       newWindow.document.write(`
-                         <html>
-                           <head><title>Image Preview</title></head>
-                           <body style="margin:0;padding:20px;background:#f6f6f6;display:flex;justify-content:center;align-items:center;min-height:100vh;">
-                             <img src="${message.attachment}" style="max-width:100%;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.1);" alt="Full size image" />
-                           </body>
-                         </html>
-                       `);
-                     }
-                   }}
-                 />
+             {/* Show attachment images if present with critique */}
+             {message.attachments && message.attachments.length > 0 && (
+               <div className="mb-4 flex flex-wrap gap-2">
+                 {message.attachments.map((attachment, index) => (
+                   <div key={index} className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-full cursor-pointer hover:shadow-md transition-shadow">
+                     <img 
+                       src={attachment} 
+                       alt={`Design being critiqued ${index + 1}`} 
+                       className="max-w-full h-auto max-h-[400px] md:max-h-[500px] object-contain bg-slate-50"
+                       onClick={(e) => {
+                         // Open image in new tab/window for full view
+                         const newWindow = window.open();
+                         if (newWindow) {
+                           newWindow.document.write(`
+                             <html>
+                               <head><title>Image Preview</title></head>
+                               <body style="margin:0;padding:20px;background:#f6f6f6;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+                                 <img src="${attachment}" style="max-width:100%;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.1);" alt="Full size image" />
+                               </body>
+                             </html>
+                           `);
+                         }
+                       }}
+                     />
+                   </div>
+                 ))}
                </div>
              )}
              <div className="text-[#32404F] text-left w-full">
@@ -640,28 +718,32 @@ function MessageItem({ message }: { message: Message }) {
         isUser ? "justify-end" : "justify-start"
     )}>
        <div className={cn("flex flex-col max-w-[70%]", isUser ? "items-end" : "items-start")}>
-          {/* Show attachment image if present */}
-          {message.attachment && (
-            <div className="mb-3 rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-full cursor-pointer hover:shadow-md transition-shadow group/image">
-              <img 
-                src={message.attachment} 
-                alt="Attachment" 
-                className="max-w-full h-auto max-h-[400px] md:max-h-[500px] object-contain bg-slate-50"
-                onClick={(e) => {
-                  // Open image in new tab/window for full view
-                  const newWindow = window.open();
-                  if (newWindow) {
-                    newWindow.document.write(`
-                      <html>
-                        <head><title>Image Preview</title></head>
-                        <body style="margin:0;padding:20px;background:#f6f6f6;display:flex;justify-content:center;align-items:center;min-height:100vh;">
-                          <img src="${message.attachment}" style="max-width:100%;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.1);" alt="Full size image" />
-                        </body>
-                      </html>
-                    `);
-                  }
-                }}
-              />
+          {/* Show attachment images if present */}
+          {message.attachments && message.attachments.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {message.attachments.map((attachment, index) => (
+                <div key={index} className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-full cursor-pointer hover:shadow-md transition-shadow group/image">
+                  <img 
+                    src={attachment} 
+                    alt={`Attachment ${index + 1}`} 
+                    className="max-w-full h-auto max-h-[400px] md:max-h-[500px] object-contain bg-slate-50"
+                    onClick={(e) => {
+                      // Open image in new tab/window for full view
+                      const newWindow = window.open();
+                      if (newWindow) {
+                        newWindow.document.write(`
+                          <html>
+                            <head><title>Image Preview</title></head>
+                            <body style="margin:0;padding:20px;background:#f6f6f6;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+                              <img src="${attachment}" style="max-width:100%;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.1);" alt="Full size image" />
+                            </body>
+                          </html>
+                        `);
+                      }
+                    }}
+                  />
+                </div>
+              ))}
             </div>
           )}
           
@@ -683,7 +765,7 @@ function MessageItem({ message }: { message: Message }) {
                    {formatPlainText(message.content as string)}
                  </div>
                ) : (
-                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 font-sans">
+                 <div className="font-sans">
                    {formatStructuredText(formatPlainText(message.content as string))}
                  </div>
                )}

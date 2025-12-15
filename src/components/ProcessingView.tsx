@@ -5,11 +5,11 @@ import { motion } from "motion/react";
 import { AnimatedProofitLogo } from "./AnimatedProofitLogo";
 
 interface ProcessingViewProps {
-  attachment?: string | null;
+  attachments?: string[];
   code?: string;
 }
 
-export function ProcessingView({ attachment, code }: ProcessingViewProps) {
+export function ProcessingView({ attachments, code }: ProcessingViewProps) {
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export function ProcessingView({ attachment, code }: ProcessingViewProps) {
     >
       <div className="flex flex-col md:flex-row items-center gap-12 md:gap-16">
         {/* Preview Section - Only show if there's content */}
-        {(attachment || code) && (
+        {((attachments && attachments.length > 0) || code) && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -39,9 +39,9 @@ export function ProcessingView({ attachment, code }: ProcessingViewProps) {
           >
             <div className="absolute -inset-4 bg-gradient-to-b from-white/0 via-white/50 to-white/80 z-20 pointer-events-none rounded-xl" />
             <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden relative">
-              {attachment ? (
+              {attachments && attachments.length > 0 ? (
                 <div className="aspect-[4/3] bg-slate-50 relative">
-                  <img src={attachment} alt="Processing Preview" className="w-full h-full object-cover" />
+                  <img src={attachments[0]} alt="Processing Preview" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-[#E6602E]/5 mix-blend-overlay" />
                   
                   {/* Scanning Effect */}

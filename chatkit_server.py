@@ -34,6 +34,8 @@ class MyChatKitServer(ChatKitServer[dict]):
     
     def __init__(self, store: Store[dict], attachment_store: AttachmentStore[dict] | None = None):
         super().__init__(store, attachment_store)
+        # ChatKitServer stores the store as self.store, but we'll keep a reference just in case
+        self._data_store = store
     
     async def respond(
         self,
@@ -67,27 +69,116 @@ class MyChatKitServer(ChatKitServer[dict]):
             if input_user_message:
                 # Extract message content
                 message_text = ""
+                image_data_url = None
                 if hasattr(input_user_message, 'content'):
                     content = input_user_message.content
                     if isinstance(content, str):
                         message_text = content
                     elif isinstance(content, list):
-                        # Extract text from content parts
+                        # Extract text and image from content parts
                         for part in content:
-                            if isinstance(part, dict) and part.get("type") == "text":
-                                message_text += part.get("text", "")
+                            if isinstance(part, dict):
+                                if part.get("type") == "text":
+                                    message_text += part.get("text", "")
+                                elif part.get("type") == "image" or part.get("type") == "image_url":
+                                    # Handle image data
+                                    image_url = part.get("image_url") or part.get("url")
+                                    if image_url:
+                                        image_data_url = image_url
                             elif hasattr(part, 'text'):
                                 message_text += part.text
+                            elif hasattr(part, 'image_url'):
+                                image_data_url = part.image_url
+                
+                # Load conversation history from thread
+                conversation_history = []
+                try:
+                    # Load previous thread items (messages) from the store
+                    # Try to use the store from parent class, fallback to our reference
+                    store_to_use = getattr(self, 'store', None) or self._data_store
+                    previous_items = await store_to_use.load_thread_items(thread.id, context, limit=50)
+                    
+                    # Convert thread items to conversation history format
+                    for item in previous_items:
+                        if hasattr(item, 'type'):
+                            if item.type == 'user_message':
+                                # Extract text from user message
+                                item_text = ""
+                                if hasattr(item, 'content'):
+                                    if isinstance(item.content, str):
+                                        item_text = item.content
+                                    elif isinstance(item.content, list):
+                                        for part in item.content:
+                                            if isinstance(part, dict) and part.get("type") == "text":
+                                                item_text += part.get("text", "")
+                                            elif hasattr(part, 'text'):
+                                                item_text += part.text
+                                
+                                if item_text:
+                                    conversation_history.append({
+                                        "role": "user",
+                                        "content": [{"type": "input_text", "text": item_text}]
+                                    })
+                            
+                            elif item.type == 'assistant_message':
+                                # Extract text from assistant message
+                                item_text = ""
+                                if hasattr(item, 'content'):
+                                    if isinstance(item.content, str):
+                                        item_text = item.content
+                                    elif isinstance(item.content, list):
+                                        for part in item.content:
+                                            if isinstance(part, dict) and part.get("type") == "text":
+                                                item_text += part.get("text", "")
+                                            elif hasattr(part, 'text'):
+                                                item_text += part.text
+                                
+                                if item_text:
+                                    # Assistant messages must use "output_text" not "input_text"
+                                    conversation_history.append({
+                                        "role": "assistant",
+                                        "content": [{"type": "output_text", "text": item_text}]
+                                    })
+                except Exception as e:
+                    # If loading history fails, continue without it
+                    print(f"Warning: Could not load conversation history: {e}")
                 
                 # Determine mode based on thread metadata or context
                 mode = thread_metadata.get("mode", "critique")
-                if session_type == "chat":
+                if session_type == "chat" or len(conversation_history) > 0:
                     mode = "chat"
                 
-                # Run the Proofit workflow
-                workflow_input = WorkflowInput(input_as_text=message_text)
-                result = await run_workflow(workflow_input)
-                output_text = result.get("output_text", "")
+                # Add current user message to conversation history
+                current_user_content = [{"type": "input_text", "text": message_text}]
+                if image_data_url:
+                    current_user_content.append({
+                        "type": "input_image",
+                        "image_url": image_data_url
+                    })
+                
+                conversation_history.append({
+                    "role": "user",
+                    "content": current_user_content
+                })
+                
+                # Run the Proofit workflow with conversation history
+                try:
+                    workflow_input = WorkflowInput(
+                        input_as_text=message_text,
+                        mode=mode,
+                        image_data_url=image_data_url,
+                        conversation_history=conversation_history if conversation_history else None
+                    )
+                    result = await run_workflow(workflow_input)
+                    output_text = result.get("output_text", "")
+                except Exception as workflow_error:
+                    # Log workflow error for debugging
+                    import traceback
+                    error_trace = traceback.format_exc()
+                    print(f"Workflow error: {workflow_error}")
+                    print(f"Traceback: {error_trace}")
+                    # Return a user-friendly error message
+                    output_text = f"I encountered an error processing your message: {str(workflow_error)}. Please try again or rephrase your question."
                 
                 # Create assistant message item
                 import uuid
@@ -111,12 +202,18 @@ class MyChatKitServer(ChatKitServer[dict]):
                 )
             
         except Exception as e:
+            # Log the full error for debugging
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"Error in respond method: {e}")
+            print(f"Traceback: {error_trace}")
+            
             # Yield error event
             yield ErrorEvent(
                 type="error",
                 error={
                     "code": "internal_error",
-                    "message": str(e),
+                    "message": f"Error processing message: {str(e)}",
                 },
             )
     
@@ -255,8 +352,12 @@ async def context_info():
 class WorkflowRequest(BaseModel):
     input_as_text: str
     mode: str = "critique"  # 'critique' or 'chat'
-    image: str | None = None  # Base64 encoded image
-    image_media_type: str | None = None  # e.g., 'image/png'
+    image: str | None = None  # Base64 encoded image (deprecated, use images)
+    image_media_type: str | None = None  # e.g., 'image/png' (deprecated, use images)
+    images: list[dict] | None = None  # Array of {data: str, media_type: str} (up to 3 images)
+    conversation_history: list[dict] | None = None  # Previous conversation messages
+    audience: str | None = None  # Audience/context: consumer, enterprise, developer, marketing, internal
+    platform: str | None = None  # Platform/breakpoint: desktop, mobile, responsive, app
 
 
 @app.post("/workflow")
@@ -266,24 +367,46 @@ async def workflow_endpoint(request: WorkflowRequest):
     Supports text input and optional image attachments.
     """
     try:
-        # Convert base64 image to data URL format if provided
-        image_data_url = None
-        if request.image:
-            # If image is base64, convert to data URL
+        # Convert base64 images to data URL format if provided
+        image_data_urls = []
+        
+        # Handle new images array format (up to 3 images)
+        if request.images and len(request.images) > 0:
+            for img in request.images[:3]:  # Limit to 3 images
+                if isinstance(img, dict) and 'data' in img:
+                    media_type = img.get('media_type', 'image/png')
+                    image_data_urls.append(f"data:{media_type};base64,{img['data']}")
+        
+        # Handle legacy single image format for backward compatibility
+        elif request.image:
             if request.image_media_type:
-                image_data_url = f"data:{request.image_media_type};base64,{request.image}"
+                image_data_urls.append(f"data:{request.image_media_type};base64,{request.image}")
             else:
-                # Assume PNG if media type not provided
-                image_data_url = f"data:image/png;base64,{request.image}"
+                image_data_urls.append(f"data:image/png;base64,{request.image}")
+        
+        # Use first image for single image compatibility, or None if no images
+        image_data_url = image_data_urls[0] if image_data_urls else None
+        
+        # Log the request for debugging
+        print(f"Workflow request: mode={request.mode}, image_count={len(image_data_urls)}, history_length={len(request.conversation_history) if request.conversation_history else 0}")
         
         workflow_input = WorkflowInput(
             input_as_text=request.input_as_text,
             mode=request.mode,
-            image_data_url=image_data_url
+            image_data_url=image_data_url,  # For backward compatibility, use first image
+            image_data_urls=image_data_urls if image_data_urls else None,  # New multi-image support
+            conversation_history=request.conversation_history,
+            audience=request.audience,
+            platform=request.platform
         )
         result = await run_workflow(workflow_input)
         return {"output_text": result["output_text"]}
     except Exception as e:
+        # Log the full error with traceback
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Workflow endpoint error: {e}")
+        print(f"Traceback: {error_trace}")
         return Response(
             content=f'{{"error": "{str(e)}"}}',
             media_type="application/json",

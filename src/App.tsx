@@ -11,7 +11,7 @@ export default function App() {
   const [status, setStatus] = useState<"idle" | "processing" | "complete" | "projects" | "starred">("idle");
   const [goal, setGoal] = useState<Goal>("conversion");
   const [code, setCode] = useState("");
-  const [attachment, setAttachment] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<string[]>([]);
   const [isProcessingFollowUp, setIsProcessingFollowUp] = useState(false);
   
   // Chat State
@@ -20,14 +20,27 @@ export default function App() {
 
   const currentSession = chatSessions.find(s => s.id === currentSessionId);
 
-  const handleCritique = async () => {
-    if (!code.trim() && !attachment) return;
+  const handleCritique = async (audience?: string | null, platform?: string | null) => {
+    console.log('handleCritique called:', { 
+      hasText: !!code.trim(), 
+      textLength: code.trim().length,
+      attachmentCount: attachments.length,
+      audience,
+      platform
+    });
+    
+    if (!code.trim() && attachments.length === 0) {
+      console.warn('handleCritique blocked: no text and no attachments');
+      return;
+    }
+    
+    console.log('Setting status to processing...');
     setStatus("processing");
     
     try {
       // Create the session immediately with user message
       let title = code.split(/[\n\s]+/).filter(w => w.length > 0).slice(0, 4).join(" ");
-      if (!title && attachment) {
+      if (!title && attachments.length > 0) {
         title = "Design Critique";
       }
       if (!title) {
@@ -40,7 +53,7 @@ export default function App() {
         role: 'user',
         content: code || "Please critique this design",
         type: 'text',
-        attachment: attachment || undefined
+        attachments: attachments.length > 0 ? attachments : undefined
       };
 
       // Create session with just the user message initially
@@ -59,7 +72,7 @@ export default function App() {
 
       // Generate critique using real API
       try {
-        const critiqueResult = await analyzeCode(code, goal, attachment || undefined);
+        const critiqueResult = await analyzeCode(code, goal, attachments.length > 0 ? attachments : undefined, audience || undefined, platform || undefined);
         
         // Add the critique message to the session
         // Preserve attachment from user message so image is visible with critique
@@ -68,7 +81,7 @@ export default function App() {
           role: 'agent',
           content: critiqueResult,
           type: 'critique',
-          attachment: attachment || undefined // Preserve image attachment
+          attachments: attachments.length > 0 ? attachments : undefined // Preserve image attachments
         };
 
         setChatSessions(prev => prev.map(session => {
@@ -135,12 +148,12 @@ export default function App() {
   const handleSendMessage = (text: string, attachment?: string) => {
     if (!currentSessionId) return;
 
-    const userMsg: Message = {
+      const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: text,
       type: 'text',
-      attachment: attachment
+      attachments: attachments && attachments.length > 0 ? attachments : undefined
     };
 
     // Get messages and goal BEFORE adding the new user message
@@ -171,7 +184,7 @@ export default function App() {
     (async () => {
       try {
         // Call sendChatMessage with messages (without the new user message) and the text
-        const responseText = await sendChatMessage(messagesForContext, text, sessionGoal, attachment);
+        const responseText = await sendChatMessage(messagesForContext, text, sessionGoal, attachments);
         
         const agentMsg: Message = {
           id: (Date.now() + 1).toString(),
@@ -191,11 +204,17 @@ export default function App() {
         }));
       } catch (error) {
         console.error('Error in handleSendMessage:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('Error details:', {
+          message: errorMessage,
+          error: error,
+          stack: error instanceof Error ? error.stack : undefined
+        });
         
         const errorMsg: Message = {
           id: (Date.now() + 1).toString(),
           role: 'agent',
-          content: "I encountered an error processing your message. Please try again.",
+          content: `I encountered an error: ${errorMessage}. Please try again or rephrase your question.`,
           type: 'text'
         };
 
@@ -227,7 +246,7 @@ export default function App() {
     setStatus("idle");
     setCurrentSessionId(null);
     setCode("");
-    setAttachment(null);
+    setAttachments([]);
     setGoal("conversion");
   };
 
@@ -271,13 +290,13 @@ export default function App() {
           setCode={setCode} 
           goal={goal} 
           setGoal={setGoal}
-          attachment={attachment}
-          setAttachment={setAttachment} 
-          onSubmit={handleCritique} 
+          attachments={attachments}
+          setAttachments={setAttachments} 
+          onSubmit={(audience, platform) => handleCritique(audience, platform)} 
         />
       )}
       {status === "processing" && (
-        <ProcessingView attachment={attachment} code={code} />
+        <ProcessingView attachments={attachments} code={code} />
       )}
       {status === "complete" && currentSession && (
         <ChatInterface 

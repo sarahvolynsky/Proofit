@@ -11,7 +11,8 @@ export interface Message {
   role: 'user' | 'agent';
   content: string | CritiqueResult;
   type?: 'text' | 'critique' | 'code';
-  attachment?: string; // Image data URL or URL
+  attachment?: string; // Image data URL or URL (deprecated, use attachments)
+  attachments?: string[]; // Array of image data URLs or URLs (up to 3)
 }
 
 export interface ChatSession {
@@ -28,27 +29,69 @@ export async function sendChatMessage(
   messages: Message[],
   userMessage: string,
   goal: Goal,
-  attachment?: string
+  attachments?: string[]
 ): Promise<string> {
   try {
-    // Build the input text from user message and context
-    let inputText = userMessage;
+    // Build conversation history from previous messages
+    const conversationHistory: Array<{role: string, content: Array<{type: string, text: string}>}> = [];
     
-    // Add context from previous critique if available
-    const critiqueMessage = messages.find(m => m.type === 'critique');
-    if (critiqueMessage && typeof critiqueMessage.content !== 'string') {
-      const critique = critiqueMessage.content as CritiqueResult;
-      inputText = `${userMessage}\n\nContext: Previous critique found ${critique.issues.length} issues with overall score ${critique.scores.overall}/10.`;
+    // Convert previous messages to conversation history format
+    // Only include the last few messages to avoid token limits
+    const recentMessages = messages.slice(-10); // Last 10 messages for context
+    
+    for (const msg of recentMessages) {
+      if (msg.role === 'user') {
+        const content: Array<{type: string, text: string}> = [];
+        if (typeof msg.content === 'string') {
+          content.push({ type: 'input_text', text: msg.content });
+        }
+        // Note: attachments are handled separately in the API call
+        if (content.length > 0) {
+          conversationHistory.push({
+            role: 'user',
+            content: content
+          });
+        }
+      } else if (msg.role === 'agent') {
+        const content: Array<{type: string, text: string}> = [];
+        if (typeof msg.content === 'string') {
+          // Assistant messages must use "output_text" not "input_text"
+          content.push({ type: 'output_text', text: msg.content });
+        } else {
+          // For critique results, extract text summary
+          try {
+            const critique = msg.content as CritiqueResult;
+            if (critique && critique.issues && critique.scores) {
+              const summary = `Previous critique: ${critique.issues.length} issues identified with overall score ${critique.scores.overall}/10.`;
+              // Assistant messages must use "output_text" not "input_text"
+              content.push({ type: 'output_text', text: summary });
+            }
+          } catch (e) {
+            // Skip if critique format is invalid
+            console.warn('Could not parse critique for history:', e);
+          }
+        }
+        if (content.length > 0) {
+          conversationHistory.push({
+            role: 'assistant',
+            content: content
+          });
+        }
+      }
     }
     
-    // If there's an attachment, mention it in the text
-    if (attachment) {
-      inputText = `Image attached. ${inputText}`;
+    // Build the input text from user message
+    let inputText = userMessage;
+    
+    // If there are attachments, mention them in the text
+    if (attachments && attachments.length > 0) {
+      const imageCount = attachments.length;
+      inputText = `${imageCount} image${imageCount > 1 ? 's' : ''} attached. ${inputText}`;
     }
     
     // Call workflow via edge function in chat mode (returns conversational text, not JSON)
-    console.log('🚀 Calling workflow for chat message...', { hasImage: !!attachment });
-    const result = await callWorkflow(inputText, 'chat', attachment);
+    console.log('🚀 Calling workflow for chat message...', { imageCount: attachments?.length || 0, historyLength: conversationHistory.length });
+    const result = await callWorkflow(inputText, 'chat', attachments, conversationHistory);
     
     // Extract the output text
     if (result && result.output_text) {
@@ -62,17 +105,18 @@ export async function sendChatMessage(
   }
 }
 
-export async function analyzeCode(code: string, goal: Goal, imageUrl?: string): Promise<CritiqueResult> {
-  console.log('🔍 analyzeCode called with:', { codeLength: code.length, hasImage: !!imageUrl, goal });
+export async function analyzeCode(code: string, goal: Goal, imageUrls?: string[], audience?: string, platform?: string): Promise<CritiqueResult> {
+  console.log('🔍 analyzeCode called with:', { codeLength: code.length, imageCount: imageUrls?.length || 0, goal });
   
   // Use the agentic workflow via edge function
   let inputText = code;
-  if (imageUrl) {
-    inputText = `Image attached. Analyze this design:\n\n${code}`;
+  if (imageUrls && imageUrls.length > 0) {
+    const imageCount = imageUrls.length;
+    inputText = `${imageCount} image${imageCount > 1 ? 's' : ''} attached. Analyze this design:\n\n${code}`;
   }
   
-  console.log('🚀 Calling workflow via edge function...', { hasImage: !!imageUrl });
-  const result = await callWorkflow(inputText, 'critique', imageUrl);
+  console.log('🚀 Calling workflow via edge function...', { imageCount: imageUrls?.length || 0, audience, platform });
+  const result = await callWorkflow(inputText, 'critique', imageUrls, undefined, audience, platform);
   console.log('✅ Workflow result received:', { 
     hasOutput: !!result?.output_text, 
     outputLength: result?.output_text?.length,

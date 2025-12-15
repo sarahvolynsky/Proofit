@@ -1,22 +1,22 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { ArrowUp, Paperclip, CornerDownLeft, X, PenTool, Users, MonitorSmartphone, Check } from "lucide-react";
-import Frame from "../imports/Frame6";
 import { Goal } from "../lib/agent";
 import { cn } from "../lib/utils";
 import { motion } from "motion/react";
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import proofitBackgroundUrl from "../assets/proofitbackground.svg?url";
 
 interface CritiqueInputProps {
   code: string;
   setCode: (code: string) => void;
   goal: Goal;
   setGoal: (goal: Goal) => void;
-  attachment: string | null;
-  setAttachment: (attachment: string | null) => void;
-  onSubmit: () => void;
+  attachments: string[];
+  setAttachments: (attachments: string[]) => void;
+  onSubmit: (audience?: string | null, platform?: string | null) => void;
 }
 
-export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAttachment, onSubmit }: CritiqueInputProps) {
+export function CritiqueInput({ code, setCode, goal, setGoal, attachments, setAttachments, onSubmit }: CritiqueInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [audienceDropdownOpen, setAudienceDropdownOpen] = useState(false);
   const [platformDropdownOpen, setPlatformDropdownOpen] = useState(false);
@@ -46,16 +46,49 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setAttachment(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-    if (fileInputRef.current) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    const remainingSlots = 3 - attachments.length;
+    const filesToAdd = imageFiles.slice(0, remainingSlots);
+    
+    if (filesToAdd.length === 0) {
+      if (attachments.length >= 3) {
+        alert('Maximum 3 images allowed');
+      } else {
+        alert('Please select image files only');
+      }
+      if (fileInputRef.current) {
         fileInputRef.current.value = "";
+      }
+      return;
+    }
+    
+    // Process all files and update state once all are loaded
+    const loadPromises = filesToAdd.map((file) => {
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve(e.target?.result as string);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    });
+    
+    Promise.all(loadPromises)
+      .then((newAttachments) => {
+        setAttachments((prev) => [...prev, ...newAttachments]);
+      })
+      .catch((error) => {
+        console.error('Error loading images:', error);
+        alert('Error loading one or more images. Please try again.');
+      });
+    
+    // Reset input to allow selecting the same files again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -69,8 +102,8 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
     // Only handle Enter for submission
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (code.trim()) {
-        onSubmit();
+      if (code.trim() || attachments.length > 0) {
+        onSubmit(selectedAudience, selectedPlatform);
       }
     }
   };
@@ -104,7 +137,7 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
       const figmaUrlRegex = /https?:\/\/(www\.)?figma\.com\/(file|design|proto)\/[a-zA-Z0-9]+/;
       const match = textData.match(figmaUrlRegex);
       
-      if (match && !isFetchingFigma && !attachment) {
+      if (match && !isFetchingFigma && attachments.length === 0) {
         console.log('Found Figma URL in text:', match[0]);
         e.preventDefault();
         fetchFigmaDesign(match[0]);
@@ -120,10 +153,10 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
         console.log('Found image in paste, type:', item.type);
         e.preventDefault();
         const file = item.getAsFile();
-        if (file) {
+        if (file && file.type.startsWith('image/') && attachments.length < 3) {
           const reader = new FileReader();
           reader.onload = (e) => {
-            setAttachment(e.target?.result as string);
+            setAttachments([...attachments, e.target?.result as string]);
           };
           reader.readAsDataURL(file);
         }
@@ -157,8 +190,8 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
       const data = await response.json();
       
       // Set the image as attachment if available
-      if (data.imageUrl) {
-        setAttachment(data.imageUrl);
+      if (data.imageUrl && attachments.length < 3) {
+        setAttachments([...attachments, data.imageUrl]);
       }
       
       // Optionally update the prompt with file info
@@ -180,7 +213,7 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
     const figmaUrlRegex = /https?:\/\/(www\.)?figma\.com\/(file|design)\/[a-zA-Z0-9]+/;
     const match = value.match(figmaUrlRegex);
     
-    if (match && !isFetchingFigma && !attachment) {
+    if (match && !isFetchingFigma && attachments.length === 0) {
       fetchFigmaDesign(match[0]);
     }
   };
@@ -205,27 +238,59 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) return;
 
-    const file = files[0];
-    
-    // Check if it's an image
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setAttachment(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      alert('Please drop an image file');
+    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      alert('Please drop image files only');
+      return;
     }
+    
+    const remainingSlots = 3 - attachments.length;
+    if (remainingSlots === 0) {
+      alert('Maximum 3 images allowed');
+      return;
+    }
+    
+    const filesToAdd = imageFiles.slice(0, remainingSlots);
+    
+    // Process all files and update state once all are loaded
+    const loadPromises = filesToAdd.map((file) => {
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve(e.target?.result as string);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    });
+    
+    Promise.all(loadPromises)
+      .then((newAttachments) => {
+        setAttachments((prev) => [...prev, ...newAttachments]);
+      })
+      .catch((error) => {
+        console.error('Error loading images:', error);
+        alert('Error loading one or more images. Please try again.');
+      });
   };
   
   return (
-    <div className="w-full h-full flex flex-col items-center relative z-10 overflow-y-auto overflow-x-hidden">
+    <div className="w-full min-h-screen flex flex-col items-center relative z-10 overflow-y-auto overflow-x-hidden">
       
-      {/* Background */}
-      <div className="absolute top-[0px] left-1/2 -translate-x-1/2 w-[1230px] h-[1404px] z-0 pointer-events-none max-w-none">
-          <Frame />
-      </div>
+      {/* Background SVG - Fixed to viewport to ensure full coverage without cutoff */}
+      <div 
+        className="fixed inset-0 z-0 pointer-events-none"
+        style={{
+          backgroundImage: `url(${proofitBackgroundUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          width: '100vw',
+          height: '100vh',
+          minHeight: '100vh',
+          minWidth: '100vw'
+        }}
+      />
 
       {/* Hero Section with Input */}
       <div className="w-full min-h-screen flex flex-col items-center justify-center py-20">
@@ -251,18 +316,20 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
             isDragging && "border-[#E6602E] border-2 bg-[#E6602E]/5"
           )}>
             
-            {/* Attachment Preview */}
-            {attachment && (
-              <div className="px-[14px] pt-[14px] pb-1">
-                 <div className="relative w-[72px] h-[72px] rounded-xl overflow-hidden border border-slate-100 shadow-sm group/attachment select-none">
-                    <img src={attachment} alt="Preview" className="w-full h-full object-cover" />
+            {/* Attachment Previews */}
+            {attachments.length > 0 && (
+              <div className="px-[14px] pt-[14px] pb-1 flex flex-wrap gap-2">
+                {attachments.map((attachment, index) => (
+                  <div key={index} className="relative w-[72px] h-[72px] rounded-xl overflow-hidden border border-slate-100 shadow-sm group/attachment select-none">
+                    <img src={attachment} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
                     <button 
-                        onClick={() => setAttachment(null)}
+                        onClick={() => setAttachments(attachments.filter((_, i) => i !== index))}
                         className="absolute top-1.5 right-1.5 w-5 h-5 bg-white rounded-md flex items-center justify-center shadow-sm hover:bg-slate-50 transition-all duration-200 cursor-pointer z-10 opacity-0 group-hover/attachment:opacity-100"
                     >
                         <X size={12} className="text-slate-600" strokeWidth={2.5} />
                     </button>
-                 </div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -275,7 +342,7 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
               placeholder="Ask Proofit for an evaluation..."
               className={cn(
                   "w-full bg-transparent border-none text-sm font-['Geist',_sans-serif] font-medium text-[#32404F] placeholder:text-slate-300 focus:outline-none focus:ring-0 resize-none leading-relaxed scrollbar-hide",
-                  attachment ? "h-[54px] px-[14px] pt-[13px] pb-[14px]" : "h-[54px] px-[14px] pt-[11px] pb-[6px]"
+                  attachments.length > 0 ? "h-[54px] px-[14px] pt-[13px] pb-[14px]" : "h-[54px] px-[14px] pt-[11px] pb-[6px]"
               )}
               spellCheck={false}
               onSelect={(e) => {
@@ -297,7 +364,8 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
                       ref={fileInputRef} 
                       className="hidden" 
                       onChange={handleFileChange} 
-                      accept="image/*" 
+                      accept="image/*"
+                      multiple 
                   />
                   <button 
                     onClick={handleAttach}
@@ -407,9 +475,26 @@ export function CritiqueInput({ code, setCode, goal, setGoal, attachment, setAtt
                      <CornerDownLeft size={10} strokeWidth={2.5} />
                   </div>
                   <button 
-                    onClick={onSubmit}
-                    disabled={!code.trim()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('Submit button clicked:', { 
+                        hasText: !!code.trim(), 
+                        textLength: code.trim().length,
+                        attachmentCount: attachments.length,
+                        canSubmit: code.trim() || attachments.length > 0
+                      });
+                      if (code.trim() || attachments.length > 0) {
+                        console.log('Calling onSubmit...');
+                        onSubmit(selectedAudience, selectedPlatform);
+                      } else {
+                        console.warn('Submit blocked: no text and no attachments');
+                      }
+                    }}
+                    disabled={!code.trim() && attachments.length === 0}
+                    type="button"
                     className="size-8 rounded-full bg-[#32404F] text-white flex items-center justify-center hover:bg-[#25303b] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow focus:outline-none active:scale-95"
+                    title={(!code.trim() && attachments.length === 0) ? 'Enter text or attach images to submit' : 'Submit'}
                   >
                     <ArrowUp size={16} strokeWidth={2.5} />
                   </button>
