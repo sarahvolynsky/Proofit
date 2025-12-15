@@ -1,75 +1,278 @@
 # Proofit 🎨
 
-**A Design Critique Agent for Modern Web Interfaces**
+**The AI Design Critic That Helps Ships Better Products**
 
-Proofit is an AI-powered design critique tool that provides expert-level feedback on UI/UX designs, focusing exclusively on visual design and user experience issues—not code quality or security issues that IDEs already handle.
-
----
-
-## 🎯 **Core Philosophy**
-
-> "Stronger than ChatGPT's UI/UX roasts."
-
-Proofit delivers **brutal but constructive** design critiques with:
-- ✅ Specific, actionable feedback (exact Tailwind classes, not vague suggestions)
-- ✅ Design theory-backed recommendations (8pt grid, Don Norman's principles, WCAG standards)
-- ✅ Honest scoring (calls out real issues with 6/10 instead of inflated 9/10)
-- ✅ Sharp but fair tone—professional expertise, not meanness
+Stop shipping interfaces that confuse users. Proofit is an AI-powered design critique agent that delivers expert-level, actionable feedback—not generic suggestions. Built on OpenAI's ChatKit API, it combines multiple specialized agents to give you the brutal honesty you need to build interfaces that work.
 
 ---
 
-## 🚀 **Key Features**
+## 🎯 **Why Proofit Exists**
 
-### **1. Design-Focused Critique**
-- **Visual Design Score** (typography, spacing, color)
-- **UX Clarity Score** (affordance, hierarchy, interaction design)
-- Excludes Code Quality & Security (leave that to Cursor/IDEs)
+> "ChatGPT gives you polite feedback. Proofit gives you the truth."
 
-### **2. Comprehensive Analysis**
-- **P0/P1/P2 Issue Prioritization** - Ranked by impact
-- **One-Liner Roast** - Memorable, accurate summary of design problems
-- **Evidence-Based Findings** - Metrics on spacing inconsistency, type scale, color usage
-- **Design Principles** - References to 8pt grid, WCAG AA, affordance theory
+Most design critique tools are either too generic ("improve the UX") or too technical (code quality, not design quality). Proofit fills the gap: **surgical design critique with exact fixes, backed by design theory, delivered with authority.**
 
-### **3. Actionable Fix Steps**
-- **Exact Tailwind class replacements** (e.g., `p-[13px]` → `p-4`)
-- **Step-by-step instructions** for each issue
-- **"Get Fix Prompt" Feature** - One-click copy of LLM-ready fix instructions
-- **Quick Wins** - 5-minute fixes that make immediate impact
-
-### **4. Intelligent Context Awareness**
-- **Audience/Context Selector** (e.g., "Gen Z, Marketing Site")
-- **Platform/Breakpoint Selector** (Desktop 1440px, Mobile 375px, etc.)
-- **Goal-Oriented Analysis** (Conversion, Premium Feel, Utility, Consistency)
-
-### **5. Clean Conversational UI**
-- **Linear chat interface** (no chat bubbles, critiques embedded in stream)
-- **Glassmorphic input component** with subtle backdrop blur
-- **Collapsible sidebar** with chat history
-- **Image attachment support** (drag-and-drop or paste)
+**The result?** You ship interfaces that users actually understand, trust, and want to use.
 
 ---
 
-## 🏗️ **Architecture**
+## 🚀 **What Makes Proofit Different**
 
-### **Frontend-Only MVP**
-Proofit is currently a **100% frontend application** with:
-- ❌ No API calls
-- ❌ No Supabase/database integration
-- ❌ No edge functions
-- ✅ Mock critique data demonstrating the full user flow
-- ✅ Focus on UX/UI demonstration
+### **1. Multi-Agent Intelligence**
+Built on OpenAI's ChatKit API, Proofit uses a sophisticated agent architecture:
+- **Classify Agent** - Routes your request to the right specialist instantly
+- **Proofit (Design Evaluation)** - Core critique agent with deep design analysis
+- **SEO/Conversion Agent** - Search optimization with Semrush integration
+- **AI Readiness & Risk Ledger** - Product manager-focused readiness assessment
+- **Translator Agent** - Role-specific outputs (designer, engineer, PM)
+
+**Why it matters:** You get specialized expertise, not a one-size-fits-all response.
+
+### **2. Evidence-Based, Not Generic**
+Output detail scales with what you provide:
+- **No artifact?** High-level structural guidance
+- **Screenshot?** Concrete, referential feedback with exact element references
+- **URL + Semrush data?** Strategic, competitive analysis with quantified impact
+
+**Why it matters:** You get the right level of detail for your context, not boilerplate advice.
+
+### **3. Exact Fixes, Not Vague Suggestions**
+Every issue includes:
+- **5-7 numbered fix steps** with exact values (colors, spacing, text replacements)
+- **Specific element references** (location, name, current state)
+- **2-3 sentence explanations** of why each fix works
+- **Measurable consequences** (e.g., "increases cognitive load by 40%")
+
+**Why it matters:** You can implement fixes immediately, not spend time interpreting vague advice.
+
+### **4. Production-Ready Verdicts**
+Get clear ship/no-ship decisions with:
+- **P0 Blockers** - Must fix to ship (with exact steps)
+- **P1 Items** - Should fix before launch
+- **P2 Items** - Can ship without, but address soon
+- **Timeline recommendations** - "Fix these 3 blockers in 2-3 days, then ship"
+
+**Why it matters:** You know exactly what's blocking launch and how to fix it.
+
+### **5. Context-Aware Analysis**
+- **Audience Selector** - Consumer SaaS, Enterprise, Developer Tool, etc.
+- **Platform Selector** - Desktop, Mobile, Responsive, App-like
+- **Conversation Memory** - Maintains context across follow-up questions
+- **Multiple Image Support** - Up to 3 images per message
+
+**Why it matters:** Feedback is tailored to your specific use case, not generic best practices.
+
+---
+
+## 🏗️ **Built on Modern Architecture**
+
+### **Frontend → API → ChatKit → Agents**
+
+**Frontend (React + TypeScript)**
+- Makes API calls to ChatKit server
+- Handles image uploads, context selection, conversation UI
+- Built with Vite, Tailwind CSS, Motion animations
+
+**ChatKit Server (Python FastAPI)**
+- Implements OpenAI's ChatKit API protocol
+- Manages threads, messages, attachments, streaming
+- Uses SQLite for conversation persistence
+- Integrates with specialized agents
+
+**Agents (Python + OpenAI)**
+- Built with `openai-chatkit` and `agents` packages
+- Uses GPT-4o and GPT-5.2-pro models
+- Specialized instructions for each agent type
+- Evidence-based output scaling
 
 ### **Technology Stack**
 
-| Layer | Technology |
-|-------|-----------|
-| **Framework** | React + TypeScript |
-| **Styling** | Tailwind CSS v4.0 |
-| **Animations** | Motion (formerly Framer Motion) |
-| **UI Components** | shadcn/ui primitives |
-| **Icons** | Lucide React |
-| **Build Tool** | Vite |
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Frontend** | React + TypeScript + Vite | Modern, fast UI |
+| **Styling** | Tailwind CSS v4.0 | Utility-first design system |
+| **API Framework** | FastAPI (Python) | High-performance async server |
+| **AI Framework** | OpenAI ChatKit API | Official conversation framework |
+| **AI Models** | GPT-4o, GPT-5.2-pro | State-of-the-art language models |
+| **Data Store** | SQLite | Lightweight conversation persistence |
+| **File Store** | DiskFileStore | Attachment management |
+
+---
+
+## 🚀 **Quick Start**
+
+### **Prerequisites**
+- Node.js 18+ and npm
+- Python 3.10+ (for ChatKit server)
+- OpenAI API key
+
+### **Installation**
+
+1. **Clone and install**
+```bash
+git clone <repository-url>
+cd Proofit
+npm install
+pip install -r requirements.txt
+```
+
+2. **Set up environment variables**
+
+Create a `.env` file:
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+SEMRUSH_API_KEY=your_semrush_api_key_here  # Optional
+VITE_CHATKIT_SERVER_URL=http://localhost:8000
+```
+
+3. **Start the ChatKit server**
+```bash
+python chatkit_server.py
+```
+
+4. **Start the frontend**
+```bash
+npm run dev
+```
+
+Visit `http://localhost:3000` and start critiquing.
+
+---
+
+## 💡 **How It Works**
+
+### **The Flow**
+
+1. **You submit** a design question, code snippet, URL, or screenshot
+2. **Classify Agent** routes your request to the right specialist
+3. **Specialized Agent** analyzes with context (audience, platform, conversation history)
+4. **You get** specific, actionable feedback with exact fix steps
+5. **You follow up** with questions, and the agent remembers context
+
+### **Example Queries**
+
+- `"Roast this UI"` (with screenshot) → Detailed critique with P0/P1/P2 issues
+- `"Is this production ready?"` → Ship/no-ship verdict with blockers
+- `"Compare these two designs"` (2 images) → A/B analysis with "Make B match A" steps
+- `"Make this engineer-ready"` → Role-specific translation with code-level details
+- `"What about SEO?"` → SEO analysis with Semrush data integration
+
+---
+
+## 📊 **Output Quality**
+
+### **Design Critique Format**
+
+```
+High-level vibe: [One memorable sentence that captures the essence]
+
+[Opening observation - 3-4 sentences with context]
+
+What's failing (based on this screenshot):
+
+P0 — [Brief problem title]
+Problem: [4-6 sentences with specific element references]
+User Impact: [2-3 sentences with quantified consequences]
+Design Principle Violation: [1-2 sentences with guideline references]
+Measurable Consequences: [1-2 sentences with numbers]
+Root Cause: [1-2 sentences explaining underlying cause]
+Fix:
+1. [Specific action] — [exact value] — [2-3 sentence explanation]
+2. [Continue with 5-7 fix steps, each with exact values]
+
+[Additional P0/P1/P2 issues...]
+
+Quick improvements:
+- [Specific suggestion with exact values]
+- [7-10 actionable suggestions]
+```
+
+### **Production Readiness Format**
+
+```
+PRODUCTION-READINESS VERDICT: [Clear ship/no-ship statement]
+
+P0 BLOCKERS (must fix to ship)
+P0 — [Title]
+Problem: [4-6 sentences]
+User Impact: [2-3 sentences]
+Design Principle Violation: [1-2 sentences]
+Measurable Consequences: [1-2 sentences]
+Root Cause: [1-2 sentences]
+Fix:
+1. [Specific action] — [exact value] — [2-3 sentence explanation]
+2. [Continue with 5-7 fix steps]
+
+[Additional blockers...]
+
+P1 ITEMS (should fix before public launch)
+[Same format with 3-5 fix steps]
+
+P2 ITEMS (can ship without, but should address soon)
+[Same format with 2-3 fix steps]
+
+CLOSING VERDICT: [Decisive statement with timeline]
+```
+
+---
+
+## 🎨 **Design System**
+
+### **Visual Identity**
+- **Primary Color:** `#E6602E` (Orange) - High energy, attention-grabbing
+- **Background:** `#FAFCFD` (Off-white) - Reduces eye strain
+- **Typography:** System sans-serif with clear hierarchy
+- **Spacing:** 4pt/8pt grid system (no arbitrary values)
+
+### **UI Components**
+- Glassmorphic input with backdrop blur
+- Collapsible sidebar with chat history
+- Linear chat interface (no bubbles, critiques embedded)
+- Image preview with drag-and-drop support
+
+---
+
+## 🧠 **Agent Capabilities**
+
+### **Classification Categories**
+- `url_only` - Live URL analysis
+- `html_or_code` - Code snippet critique
+- `image_only` - Screenshot analysis
+- `mixed_input` - Combined inputs
+- `design_question` - General design questions
+- `comparison_request` - A/B comparisons
+- `validation_check` - Production readiness
+- `accessibility_check` - WCAG compliance
+- And more...
+
+### **Evidence-Based Scaling**
+- **Level 0** (No artifact) → High-level structural guidance
+- **Level 1** (Screenshot/Copy) → Concrete, referential feedback
+- **Level 2** (URL/HTML) → Verification of headings, metadata
+- **Level 3** (URL + Semrush) → Strategic, competitive analysis
+
+---
+
+## 🔧 **Development**
+
+### **Key Commands**
+
+```bash
+# Frontend
+npm run dev          # Start Vite dev server
+npm run build        # Build for production
+
+# Backend
+python chatkit_server.py  # Start ChatKit server
+```
+
+### **Environment Variables**
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `OPENAI_API_KEY` | OpenAI API key for agent models | Yes |
+| `SEMRUSH_API_KEY` | Semrush API key for SEO agent | No |
+| `VITE_CHATKIT_SERVER_URL` | ChatKit server URL | Yes |
 
 ---
 
@@ -77,418 +280,88 @@ Proofit is currently a **100% frontend application** with:
 
 ```
 /
-├── App.tsx                          # Main application with routing logic
-├── main.tsx                         # Entry point
-├── styles/globals.css               # Global Tailwind config + custom scrollbar
+├── src/                              # Frontend React app
+│   ├── components/                   # UI components
+│   ├── lib/                         # API client, utilities
+│   └── assets/                      # Images, SVGs
 │
-├── components/
-│   ├── Layout.tsx                   # Sidebar + main content wrapper
-│   ├── CritiqueInput.tsx            # Home page with dropdowns + glassmorphic input
-│   ├── ProcessingView.tsx           # Animated loading state
-│   ├── ChatInterface.tsx            # Critique conversation view
-│   ├── CritiqueResults.tsx          # Formatted critique display (scores, issues, roast)
-│   ├── Projects.tsx                 # Projects placeholder view
-│   ├── Starred.tsx                  # Starred chats placeholder view
-│   ├── ProofitLogo.tsx              # Brand logo SVG component
-│   ├── AnimatedProofitLogo.tsx      # Loading animation with logo
-│   │
-│   └── ui/                          # shadcn/ui primitives (40+ components)
-│
-├── lib/
-│   ├── agent.ts                     # Mock critique generation & chat session logic
-│   ├── schema.ts                    # TypeScript types for critique output
-│   ├── api.ts                       # Placeholder API interface (unused in MVP)
-│   ├── patterns.ts                  # Design pattern definitions
-│   └── utils.ts                     # Utility functions (cn, etc.)
-│
-├── imports/                         # Figma-imported assets & frames
-├── guidelines/                      # Internal design guidelines
-└── supabase/                        # Backend boilerplate (not currently used)
+├── chatkit_server.py                # FastAPI ChatKit server
+├── workflow.py                       # Agent definitions
+├── chatkit_store.py                 # SQLite data store
+├── requirements.txt                  # Python dependencies
+└── package.json                      # Node.js dependencies
 ```
 
 ---
 
-## 🎨 **Design System**
+## 🎯 **Use Cases**
 
-### **Color Palette**
-- **Primary/Accent:** `#E6602E` (Orange) - Used for CTAs, selection highlights
-- **Background:** `#FAFCFD` (Off-white) - Reduces eye strain
-- **Text Primary:** `#32404F` (Dark slate)
-- **Text Secondary:** `text-slate-500` / `text-slate-400`
-- **Borders:** `border-slate-100` / `border-slate-200`
+### **For Designers**
+- Get expert second opinion before handoff
+- Validate design decisions with theory-backed feedback
+- Identify accessibility issues early
+- Translate critiques into designer-friendly language
 
-### **Typography**
-- **Font Family:** System sans-serif stack
-- **Hierarchy:** Pre-configured in `globals.css` (do not override with arbitrary font-size classes)
-- **Weights:** 400 (normal), 500 (medium), 600 (semibold), 700 (bold)
+### **For Engineers**
+- Understand design issues in code-level terms
+- Get exact Tailwind class replacements
+- Receive engineer-ready fix instructions
+- Validate implementation against design principles
 
-### **Spacing**
-- **Grid System:** 4pt/8pt grid (Tailwind default scale)
-- **Component Padding:** `p-3`, `p-4`, `p-6` (no arbitrary values like `p-[13px]`)
-- **Gaps:** `gap-2`, `gap-3`, `gap-4` (multiples of 4px)
+### **For Product Managers**
+- Get production readiness verdicts
+- Identify launch blockers with timelines
+- Understand user impact of design issues
+- Make data-driven shipping decisions
 
-### **Glassmorphism Effect**
-The input component uses:
-```css
-backdrop-blur-sm bg-white/70 border border-slate-200/60
-shadow-[0_8px_32px_rgba(0,0,0,0.06)]
-```
-
-### **Custom Scrollbar**
-Defined in `globals.css`:
-- 4px width
-- `#616161` gray thumb
-- Darker on hover (`#4b4b4b`)
-- Transparent track
+### **For Teams**
+- Standardize design critique process
+- Maintain conversation history across sessions
+- Share critiques with role-specific translations
+- Track issues with P0/P1/P2 prioritization
 
 ---
 
-## 📊 **Critique Schema**
+## 🚧 **Current Status**
 
-Proofit uses a comprehensive structured output format:
+✅ **Implemented:**
+- Multi-agent architecture with ChatKit API
+- Frontend API integration
+- Image attachment support (up to 3 images)
+- Conversation memory and context
+- Specialized agents (Design, SEO, AI Readiness, Translation)
+- Production readiness verdicts
+- A/B comparison analysis
 
-### **Scores Object**
-```typescript
-{
-  overall: number;              // 0-100 aggregate score
-  visual_design: number;        // 0-10 (spacing, typography, color)
-  ux_clarity: number;           // 0-10 (hierarchy, affordance, feedback)
-  accessibility: number;        // 0-10 (WCAG compliance)
-  performance: number;          // 0-10 (not deeply analyzed in MVP)
-  code_quality: number;         // 0-10 (not displayed in UI)
-  design_system_consistency: number; // 0-10 (token drift, style variance)
-}
-```
+🚧 **In Progress:**
+- Enhanced agent instructions for better output quality
+- Improved error handling and debugging
 
-### **Issue Object**
-```typescript
-{
-  id: string;                   // "ISSUE-001"
-  category: "visual" | "ux" | "accessibility" | ...;
-  severity: "P0" | "P1" | "P2";
-  confidence: "high" | "medium" | "low";
-  title: string;                // "Arbitrary Spacing Breaks Grid Integrity"
-  problem: string;              // Detailed explanation
-  evidence: {
-    selectors: string[];        // CSS selectors
-    metrics: { ... };           // Quantitative data
-  };
-  principle: {
-    name: string;               // "8pt Grid System"
-    explanation: string;        // Why this matters
-  };
-  fix_steps: string[];          // Actionable instructions
-  patch: {
-    tailwind: [...];            // Class swap suggestions
-    react: [...];               // Code snippets
-  };
-}
-```
-
-### **Roast Object**
-```typescript
-{
-  one_liner: string;            // "You're using p-[13px] like it means something..."
-  tone_note: "sharp_but_fair";
-  vibe_tags: string[];          // ["arbitrary-values", "no-hierarchy"]
-}
-```
+🔮 **Future:**
+- Figma plugin integration
+- Team collaboration features
+- Custom agent training
+- Analytics dashboard
 
 ---
 
-## 🔄 **User Flow**
-
-### **1. Home Page (Idle State)**
-- Two dropdowns:
-  - **Audience/Context** (Gen Z, Small Business, SaaS, etc.)
-  - **Platform/Breakpoint** (Desktop 1440px, Mobile 375px, etc.)
-- Glassmorphic textarea with image attachment support
-- "Get Critique" button triggers processing
-
-### **2. Processing State**
-- Animated Proofit logo with pulsing effect
-- Loading text: *"Analyzing your design..."*
-- 2-second simulated delay (demonstrates async flow)
-
-### **3. Critique Results (Chat Interface)**
-- **User message** at top (code + optional image)
-- **Agent critique** with:
-  - Overall score card (Visual + UX scores)
-  - One-liner roast
-  - Prioritized issues (expandable accordions)
-  - Evidence, principles, fix steps
-  - "Get Fix Prompt" button per issue
-- Follow-up message input at bottom
-
-### **4. Sidebar Navigation**
-- **Home** - Return to input screen
-- **Search** - Placeholder
-- **All Projects** - Placeholder view
-- **Starred** - Placeholder view
-- **Your Chats** - Collapsible list of chat sessions
-  - Hover to reveal "..." menu
-  - Delete chat option
-
----
-
-## 🧠 **Mock Critique Logic**
-
-In `lib/agent.ts`, the `createMockCritique()` function generates a hardcoded critique with:
-
-### **6 Issues:**
-1. **ISSUE-001:** Arbitrary Spacing (P0) - `p-[13px]` breaking grid
-2. **ISSUE-002:** Low Contrast Text (P2) - Accessibility violation
-3. **ISSUE-003:** Non-Existent Typography Hierarchy (P0)
-4. **ISSUE-004:** Zero Interactive Feedback (P0) - Missing hover states
-5. **ISSUE-005:** Inconsistent Button Styles (P2)
-6. **ISSUE-006:** Poor Touch Target Sizes (P2)
-
-### **Scores:**
-- Overall: **68/100** (honest scoring, not inflated)
-- Visual Design: **6/10**
-- UX Clarity: **7/10**
-- Design System Consistency: **5/10**
-
-### **Roast:**
-> *"You're using p-[13px] like it means something, your headings look like body text, and buttons have zero hover states. This isn't a design—it's a placeholder that forgot to get replaced."*
-
----
-
-## 🎛️ **Key Features Deep Dive**
-
-### **"Get Fix Prompt" Feature**
-Located in `CritiqueResults.tsx`, this generates a formatted prompt for AI coding assistants:
-
-```
-Fix ISSUE-001: Arbitrary Spacing Breaks Grid Integrity
-
-Problem:
-Using random pixel values like 'p-[13px]' and 'gap-[7px]' completely undermines...
-
-Fix Steps:
-1. Replace all arbitrary padding values with Tailwind defaults...
-2. Replace gap values: 'gap-[7px]' → 'gap-2' (8px)
-3. Audit entire codebase...
-
----
-Copy this prompt to Claude, Cursor, Figma Make, or any AI coding assistant.
-```
-
-### **Image Attachment Handling**
-- Drag-and-drop support in `CritiqueInput.tsx`
-- Paste image from clipboard
-- Preview with remove button
-- Stores as base64 data URL in message attachment
-
-### **Chat Session Management**
-- Sessions stored in React state (no persistence)
-- Each session includes:
-  - Unique ID (timestamp)
-  - Title (auto-generated from first 4 words)
-  - Messages array
-  - Original code & goal
-  - Timestamp
-- Delete chat functionality with confirmation menu
-
-### **Collapsible Sidebar**
-- Animated width transition (240px ↔ 64px)
-- Hover tooltip when collapsed
-- Synced with chat list visibility
-- Smooth Motion animations
-
----
-
-## 🎨 **UI/UX Design Decisions**
-
-### **Why No Chat Bubbles?**
-- Traditional chat bubbles create visual clutter
-- Critiques are long-form content, not quick messages
-- Linear stream with transparent sections feels more like a document
-- Inspired by Claude's artifacts interface
-
-### **Why Glassmorphism?**
-- Modern, premium aesthetic
-- Adds depth without heavy shadows
-- Aligns with "Proofit as a pro tool" positioning
-- Subtle enough to not distract from content
-
-### **Why Orange Accent?**
-- High energy, attention-grabbing (appropriate for critique tool)
-- Good contrast against slate/white background
-- Unique brand color (not the typical blue)
-
-### **Why "Roast" Language?**
-- Makes feedback memorable
-- Signals honesty (not corporate "please consider...")
-- Engaging, shareable format
-- Balanced with actionable fixes (not just mean for sake of it)
-
----
-
-## 🚧 **Current Limitations (MVP)**
-
-### **Not Implemented:**
-- ❌ Real AI critique generation (uses mock data)
-- ❌ Backend API integration
-- ❌ Database persistence
-- ❌ User authentication
-- ❌ Actual Figma API integration
-- ❌ Screenshot analysis
-- ❌ Real-time streaming responses
-- ❌ Export/share functionality
-- ❌ Search functionality
-- ❌ Projects/Starred filtering
-
-### **Frontend-Only Scope:**
-This MVP is intentionally frontend-focused to:
-1. Demonstrate the full user experience flow
-2. Validate UI/UX design decisions
-3. Test critique format and presentation
-4. Iterate on interaction patterns before backend investment
-
----
-
-## 🔮 **Future Roadmap**
-
-### **Phase 1: AI Integration**
-- [ ] Connect to Claude API (Anthropic)
-- [ ] Real critique generation with streaming responses
-- [ ] Custom prompt engineering for design critique
-- [ ] Screenshot analysis via vision models
-
-### **Phase 2: Backend & Persistence**
-- [ ] Supabase integration
-- [ ] User authentication (email + social login)
-- [ ] Chat history persistence
-- [ ] Starred chats functionality
-
-### **Phase 3: Advanced Features**
-- [ ] Figma plugin integration
-- [ ] Before/after comparisons
-- [ ] Team collaboration
-- [ ] Critique templates
-- [ ] Export to Notion/Linear/Jira
-
-### **Phase 4: Pro Features**
-- [ ] Design system analysis
-- [ ] Brand consistency checks
-- [ ] Competitive analysis
-- [ ] A/B test suggestions
-- [ ] Automated regression testing
-
----
-
-## 🛠️ **Development**
-
-### **Getting Started**
-```bash
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-```
-
-### **Key Commands**
-- `npm run dev` - Start Vite dev server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-
-### **Environment**
-No environment variables required for MVP (frontend-only).
-
----
-
-## 📝 **Design Patterns**
-
-### **Component Organization**
-- **Layout.tsx** - Container (sidebar + main content)
-- **Page Components** - CritiqueInput, ChatInterface, Projects, Starred
-- **Feature Components** - CritiqueResults, ProcessingView
-- **UI Primitives** - `/components/ui` (shadcn/ui)
-
-### **State Management**
-- React `useState` for all state (no Redux/Zustand needed)
-- Chat sessions stored in array
-- Current session tracked by ID
-- No global state (prop drilling is minimal)
-
-### **Styling Approach**
-- Tailwind utility classes only
-- No CSS modules or styled-components
-- Custom classes in `globals.css` for:
-  - Typography base styles (h1, h2, p, etc.)
-  - Custom scrollbar
-  - Utility classes (`scrollbar-hide`, `custom-scrollbar`)
-
-### **Animation Strategy**
-- Motion (framer-motion) for all animations
-- `AnimatePresence` for enter/exit transitions
-- Consistent duration: 200-300ms
-- Easing: `ease-in-out` for organic feel
-
----
-
-## 🎓 **Design Critique Methodology**
-
-### **Inspired By:**
-- **Don Norman's Principles** (affordance, feedback, visibility)
-- **WCAG 2.1 Guidelines** (AA contrast, touch targets)
-- **Material Design 3** (motion, elevation)
-- **Apple HIG** (clarity, deference, depth)
-- **Refactoring UI** (visual hierarchy, whitespace)
-
-### **Critique Categories:**
-1. **Visual Design** - Typography, color, spacing, consistency
-2. **UX Clarity** - Hierarchy, scannability, affordance
-3. **Accessibility** - Contrast, keyboard nav, screen reader support
-4. **Performance** - LCP, CLS (not deeply analyzed in MVP)
-5. **Design System Consistency** - Token drift, arbitrary values
-
-### **Scoring Philosophy:**
-- **0-4:** Fundamental issues, unusable
-- **5-6:** Multiple critical problems, needs work
-- **7-8:** Good foundation, polish needed
-- **9-10:** Exceptional, minor tweaks only
-
----
-
-## 🤝 **Contributing**
-
-This is currently a private MVP project. For questions or collaboration:
-- Review the `guidelines/Guidelines.md` for design standards
-- Check `Attributions.md` for asset credits
-- Follow existing component patterns
-
----
-
-## 📄 **License**
+## 📝 **License**
 
 Proprietary - All Rights Reserved
 
 ---
 
-## 🙏 **Acknowledgments**
+## 🙏 **Built With**
 
-- **shadcn/ui** - Component primitives
+- **OpenAI** - GPT models and ChatKit API framework
+- **FastAPI** - High-performance Python web framework
+- **React** - Modern UI framework
 - **Tailwind CSS** - Utility-first styling
-- **Lucide** - Icon system
+- **shadcn/ui** - Component primitives
 - **Motion** - Animation library
-- **Figma** - Design tool integration (future)
 
 ---
 
-## 📬 **Contact**
-
-For inquiries about Proofit:
-- **Product:** Design Critique Agent
-- **Status:** Frontend MVP (v1.0)
-- **Last Updated:** December 2024
-
----
+**Stop shipping confusing interfaces. Start shipping better products.**
 
 **Built with ❤️ and brutal honesty.**
