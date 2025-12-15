@@ -356,6 +356,228 @@ export function ChatInterface({ messages, onSendMessage, goal, onReset, isProces
   );
 }
 
+// Format plain text output - remove markdown and improve readability
+function formatPlainText(text: string): string {
+  // Remove markdown bold syntax (**text**)
+  text = text.replace(/\*\*([^*]+)\*\*/g, '$1');
+  // Remove markdown italic syntax (*text*)
+  text = text.replace(/\*([^*]+)\*/g, '$1');
+  // Remove markdown headers (# ## ###)
+  text = text.replace(/^#{1,6}\s+/gm, '');
+  // Remove markdown code blocks (```code```)
+  text = text.replace(/```[\s\S]*?```/g, '');
+  // Remove markdown inline code (`code`)
+  text = text.replace(/`([^`]+)`/g, '$1');
+  // Clean up multiple spaces
+  text = text.replace(/  +/g, ' ');
+  // Ensure proper line breaks
+  text = text.replace(/\n{3,}/g, '\n\n');
+  
+  return text.trim();
+}
+
+// Parse and format structured text with proper typography and hierarchy
+function formatStructuredText(text: string): React.ReactNode {
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let currentParagraph: string[] = [];
+  let inIssue = false;
+  let inFix = false;
+  let inRecommendations = false;
+  let currentIssueKey = '';
+
+  const flushParagraph = (key: string) => {
+    if (currentParagraph.length > 0) {
+      const content = currentParagraph.join(' ').trim();
+      if (content) {
+        elements.push(
+          <div key={key} className="text-sm text-[#32404F] leading-relaxed mb-2">
+            {content}
+          </div>
+        );
+      }
+      currentParagraph = [];
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Detect section headers (numbered)
+    if (trimmed.match(/^[0-9]\.\s/)) {
+      flushParagraph(`para-${i}`);
+      const sectionText = trimmed.replace(/^[0-9]\.\s/, '');
+      
+      if (sectionText.includes('Opening:')) {
+        const openingText = sectionText.replace('Opening:', '').trim();
+        elements.push(
+          <div key={`opening-${i}`} className="text-xl font-semibold text-[#32404F] mb-6 leading-relaxed pb-4 border-b border-slate-200">
+            {openingText}
+          </div>
+        );
+      } else if (sectionText.includes("I'm evaluating:")) {
+        elements.push(
+          <div key={`evaluating-${i}`} className="text-base font-semibold text-[#32404F] mb-4 mt-6 flex items-center gap-2">
+            <div className="w-1 h-5 bg-[#E6602E] rounded-full"></div>
+            <span>{sectionText}</span>
+          </div>
+        );
+      } else if (sectionText.includes("What's failing")) {
+        elements.push(
+          <div key={`failing-${i}`} className="text-base font-semibold text-[#32404F] mb-5 mt-8 pt-6 border-t border-slate-200 flex items-center gap-2">
+            <div className="w-1 h-5 bg-red-500 rounded-full"></div>
+            <span>{sectionText}</span>
+          </div>
+        );
+        inIssue = true;
+        inRecommendations = false;
+      } else if (sectionText.includes("How to improve")) {
+        flushParagraph(`para-before-rec-${i}`);
+        elements.push(
+          <div key={`improve-${i}`} className="text-base font-semibold text-[#32404F] mb-4 mt-8 pt-6 border-t border-slate-200 flex items-center gap-2">
+            <div className="w-1 h-5 bg-blue-500 rounded-full"></div>
+            <span>{sectionText}</span>
+          </div>
+        );
+        inRecommendations = true;
+        inIssue = false;
+        inFix = false;
+      }
+    } 
+    // Priority issue header (P0 —, P1 —, P2 —)
+    else if (trimmed.match(/^P[0-2]\s*[—–-]/)) {
+      flushParagraph(`para-before-issue-${i}`);
+      const priorityMatch = trimmed.match(/^(P[0-2])\s*[—–-]\s*(.+)/);
+      if (priorityMatch) {
+        const [, priority, title] = priorityMatch;
+        const priorityConfig = priority === 'P0' 
+          ? { color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-700' }
+          : priority === 'P1' 
+          ? { color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-700' }
+          : { color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-yellow-100 text-yellow-700' };
+        currentIssueKey = `issue-${i}`;
+        elements.push(
+          <div key={currentIssueKey} className={`mb-6 pb-5 border-b border-slate-200 last:border-b-0 ${priorityConfig.bg} rounded-xl p-4 border ${priorityConfig.border}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <span className={`text-xs font-bold px-2 py-1 rounded-md ${priorityConfig.badge}`}>
+                {priority}
+              </span>
+              <div className={`text-base font-semibold ${priorityConfig.color} flex-1`}>
+                {title}
+              </div>
+            </div>
+          </div>
+        );
+        inIssue = true;
+        inFix = false;
+      }
+    } 
+    // Issue metadata labels
+    else if (trimmed.match(/^(Description|User Impact|Design Principle Violation|Measurable consequences|Real-world examples):/)) {
+      flushParagraph(`para-before-meta-${i}`);
+      const match = trimmed.match(/^([^:]+):\s*(.+)/);
+      if (match) {
+        const [, label, content] = match;
+        elements.push(
+          <div key={`meta-${i}`} className="mb-3 pl-3 border-l-2 border-slate-200">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{label}</div>
+            <div className="text-sm text-[#32404F] leading-relaxed">{content}</div>
+          </div>
+        );
+      }
+    } 
+    // Fix section header
+    else if (trimmed.startsWith('Fix:')) {
+      flushParagraph(`para-before-fix-${i}`);
+      inFix = true;
+      const fixContent = trimmed.replace(/^Fix:\s*/, '');
+      elements.push(
+        <div key={`fix-header-${i}`} className="mt-5 mb-3 bg-slate-50 rounded-lg p-3 border border-slate-200">
+          <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+            Fix
+          </div>
+        </div>
+      );
+      if (fixContent) {
+        currentParagraph.push(fixContent);
+      }
+    } 
+    // Numbered list items
+    else if (trimmed.match(/^\d+\.\s/)) {
+      flushParagraph(`para-before-list-${i}`);
+      const match = trimmed.match(/^(\d+)\.\s*(.+)/);
+      if (match) {
+        const [, num, content] = match;
+        elements.push(
+          <div key={`list-${i}`} className="text-sm text-[#32404F] leading-relaxed mb-3 flex items-start group">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-600 font-semibold text-xs flex items-center justify-center mr-3 mt-0.5 group-hover:bg-slate-200 transition-colors">
+              {num}
+            </span>
+            <span className="flex-1 pt-0.5">{content}</span>
+          </div>
+        );
+      }
+    } 
+    // Bullet points
+    else if (trimmed.startsWith('- ')) {
+      flushParagraph(`para-before-bullet-${i}`);
+      const content = trimmed.replace(/^-\s/, '');
+      
+      if (inRecommendations) {
+        // Recommendation items with label: description format
+        const colonIndex = content.indexOf(':');
+        if (colonIndex > 0) {
+          const label = content.substring(0, colonIndex);
+          const description = content.substring(colonIndex + 1).trim();
+          elements.push(
+            <div key={`rec-${i}`} className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+              <div className="text-sm font-semibold text-[#32404F] mb-1">{label}</div>
+              <div className="text-sm text-slate-600 leading-relaxed">{description}</div>
+            </div>
+          );
+        } else {
+          elements.push(
+            <div key={`rec-${i}`} className="text-sm text-[#32404F] leading-relaxed ml-6 mb-2.5 flex items-start">
+              <span className="text-blue-500 mr-3 mt-1.5 text-lg leading-none">•</span>
+              <span className="flex-1 pt-0.5">{content}</span>
+            </div>
+          );
+        }
+      } else {
+        elements.push(
+          <div key={`bullet-${i}`} className="text-sm text-[#32404F] leading-relaxed ml-6 mb-2.5 flex items-start">
+            <span className="text-slate-400 mr-3 mt-1.5 text-lg leading-none">•</span>
+            <span className="flex-1 pt-0.5">{content}</span>
+          </div>
+        );
+      }
+    } 
+    // Empty line
+    else if (trimmed === '') {
+      flushParagraph(`para-${i}`);
+      if (!inIssue && !inFix && !inRecommendations) {
+        elements.push(<div key={`spacer-${i}`} className="h-3" />);
+      }
+    } 
+    // Regular text content
+    else {
+      // Skip if it's a continuation of fix content that should be in a list
+      if (inFix && trimmed.match(/^\d+\./)) {
+        // This will be caught by the numbered list handler
+        continue;
+      }
+      currentParagraph.push(trimmed);
+    }
+  }
+
+  // Flush any remaining paragraph
+  flushParagraph('final-para');
+
+  return <div className="space-y-1">{elements}</div>;
+}
+
 const messageVariants = {
   hidden: { opacity: 0, y: 10 },
   visible: { 
@@ -378,6 +600,30 @@ function MessageItem({ message }: { message: Message }) {
      return (
        <motion.div variants={messageVariants} className="flex justify-start w-full">
           <div className="flex flex-col w-full items-start">
+             {/* Show attachment image if present with critique */}
+             {message.attachment && (
+               <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-full cursor-pointer hover:shadow-md transition-shadow">
+                 <img 
+                   src={message.attachment} 
+                   alt="Design being critiqued" 
+                   className="max-w-full h-auto max-h-[400px] md:max-h-[500px] object-contain bg-slate-50"
+                   onClick={(e) => {
+                     // Open image in new tab/window for full view
+                     const newWindow = window.open();
+                     if (newWindow) {
+                       newWindow.document.write(`
+                         <html>
+                           <head><title>Image Preview</title></head>
+                           <body style="margin:0;padding:20px;background:#f6f6f6;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+                             <img src="${message.attachment}" style="max-width:100%;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.1);" alt="Full size image" />
+                           </body>
+                         </html>
+                       `);
+                     }
+                   }}
+                 />
+               </div>
+             )}
              <div className="text-[#32404F] text-left w-full">
                 <AnalysisView result={result} />
              </div>
@@ -396,11 +642,25 @@ function MessageItem({ message }: { message: Message }) {
        <div className={cn("flex flex-col max-w-[70%]", isUser ? "items-end" : "items-start")}>
           {/* Show attachment image if present */}
           {message.attachment && (
-            <div className="mb-2 rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-full">
+            <div className="mb-3 rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-full cursor-pointer hover:shadow-md transition-shadow group/image">
               <img 
                 src={message.attachment} 
                 alt="Attachment" 
-                className="max-w-full h-auto max-h-[200px] object-contain"
+                className="max-w-full h-auto max-h-[400px] md:max-h-[500px] object-contain bg-slate-50"
+                onClick={(e) => {
+                  // Open image in new tab/window for full view
+                  const newWindow = window.open();
+                  if (newWindow) {
+                    newWindow.document.write(`
+                      <html>
+                        <head><title>Image Preview</title></head>
+                        <body style="margin:0;padding:20px;background:#f6f6f6;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+                          <img src="${message.attachment}" style="max-width:100%;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.1);" alt="Full size image" />
+                        </body>
+                      </html>
+                    `);
+                  }
+                }}
               />
             </div>
           )}
@@ -413,12 +673,20 @@ function MessageItem({ message }: { message: Message }) {
             </div>
           ) : (
             <div className={cn(
-              "inline-block text-sm leading-relaxed text-left whitespace-pre-wrap",
+              "text-left max-w-full",
               isUser 
-                ? "bg-[#E6602E] text-white rounded-3xl px-4 py-1 shadow-sm" 
-                : "text-[#32404F] py-2"
+                ? "inline-block bg-[#E6602E] text-white rounded-3xl px-4 py-2 shadow-sm whitespace-pre-wrap text-sm leading-relaxed" 
+                : "w-full"
             )}>
-               {message.content as string}
+               {isUser ? (
+                 <div className="font-sans whitespace-pre-wrap">
+                   {formatPlainText(message.content as string)}
+                 </div>
+               ) : (
+                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 font-sans">
+                   {formatStructuredText(formatPlainText(message.content as string))}
+                 </div>
+               )}
             </div>
           )}
        </div>

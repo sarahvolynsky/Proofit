@@ -1,5 +1,5 @@
 import { CombinedCritiqueOutput } from "./schema";
-import { callAnthropicAPI, AnthropicMessage } from "./api";
+import { callAnthropicAPI, AnthropicMessage, callWorkflow } from "./api";
 
 export type Goal = "conversion" | "premium" | "utility" | "consistency";
 
@@ -23,11 +23,103 @@ export interface ChatSession {
   goal: Goal;
 }
 
+// Function for conversational follow-up messages using agentic workflow
+export async function sendChatMessage(
+  messages: Message[],
+  userMessage: string,
+  goal: Goal,
+  attachment?: string
+): Promise<string> {
+  try {
+    // Build the input text from user message and context
+    let inputText = userMessage;
+    
+    // Add context from previous critique if available
+    const critiqueMessage = messages.find(m => m.type === 'critique');
+    if (critiqueMessage && typeof critiqueMessage.content !== 'string') {
+      const critique = critiqueMessage.content as CritiqueResult;
+      inputText = `${userMessage}\n\nContext: Previous critique found ${critique.issues.length} issues with overall score ${critique.scores.overall}/10.`;
+    }
+    
+    // If there's an attachment, mention it in the text
+    if (attachment) {
+      inputText = `Image attached. ${inputText}`;
+    }
+    
+    // Call workflow via edge function in chat mode (returns conversational text, not JSON)
+    console.log('🚀 Calling workflow for chat message...', { hasImage: !!attachment });
+    const result = await callWorkflow(inputText, 'chat', attachment);
+    
+    // Extract the output text
+    if (result && result.output_text) {
+      return result.output_text;
+    }
+    
+    throw new Error('No output from workflow');
+  } catch (error) {
+    console.error('Error in sendChatMessage:', error);
+    throw error;
+  }
+}
+
 export async function analyzeCode(code: string, goal: Goal, imageUrl?: string): Promise<CritiqueResult> {
-  // No backend calls - return mock data directly
-  console.log('Generating mock critique for goal:', goal);
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
-  return createMockCritique(goal);
+  console.log('🔍 analyzeCode called with:', { codeLength: code.length, hasImage: !!imageUrl, goal });
+  
+  // Use the agentic workflow via edge function
+  let inputText = code;
+  if (imageUrl) {
+    inputText = `Image attached. Analyze this design:\n\n${code}`;
+  }
+  
+  console.log('🚀 Calling workflow via edge function...', { hasImage: !!imageUrl });
+  const result = await callWorkflow(inputText, 'critique', imageUrl);
+  console.log('✅ Workflow result received:', { 
+    hasOutput: !!result?.output_text, 
+    outputLength: result?.output_text?.length,
+    outputPreview: result?.output_text?.substring(0, 200)
+  });
+  
+  if (!result || !result.output_text) {
+    throw new Error('Workflow returned no output. Please try again.');
+  }
+  
+  // Try to parse as JSON critique result
+  try {
+    // Try to extract JSON from markdown code blocks if present
+    let jsonText = result.output_text.trim();
+    jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+    
+    // Find JSON object in the text
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      console.log('✅ Parsed JSON successfully:', { 
+        hasSchema: !!parsed.schema_version,
+        hasIssues: !!parsed.issues,
+        issueCount: parsed.issues?.length 
+      });
+      
+      if (parsed.schema_version) {
+        console.log('✅ Returning workflow critique result');
+        return parsed as CritiqueResult;
+      }
+    }
+    
+    // If we get here, the response is plain text (for design_question/unknown categories)
+    // This is expected behavior - the agent is asking for more information
+    // We'll throw an error with the plain text so App.tsx can handle it as a text message
+    console.log('📝 Workflow returned plain text (not JSON) - this is expected for design_question/unknown categories');
+    throw new Error(result.output_text);
+  } catch (e) {
+    // If it's already our error with the plain text, re-throw it
+    if (e instanceof Error && e.message === result.output_text) {
+      throw e;
+    }
+    
+    // If JSON parsing failed, the response is likely plain text
+    console.log('📝 Response appears to be plain text, not JSON');
+    throw new Error(result.output_text);
+  }
 }
 
 // Helper function to create mock critique (for fallback)
@@ -60,9 +152,7 @@ function createMockCritique(goal: Goal): CritiqueResult {
     top_priorities: [
       { rank: 1, issue_id: "ISSUE-001", why_now: "Breaking the grid system erodes visual trust", expected_impact: "Immediate visual cohesion" },
       { rank: 2, issue_id: "ISSUE-003", why_now: "Users can't parse hierarchy—critical for scanning", expected_impact: "+40% content comprehension" },
-      { rank: 3, issue_id: "ISSUE-004", why_now: "Ghost buttons kill conversions", expected_impact: "+25% interaction confidence" },
-      { rank: 4, issue_id: "ISSUE-007", why_now: "Whitespace chaos makes page feel amateur", expected_impact: "Professional perception shift" },
-      { rank: 5, issue_id: "ISSUE-005", why_now: "Inconsistent buttons signal lack of craft", expected_impact: "Unified design language" }
+      { rank: 3, issue_id: "ISSUE-004", why_now: "Ghost buttons kill conversions", expected_impact: "+25% interaction confidence" }
     ],
     roast: {
       one_liner: "You're using p-[13px] like it means something, your headings look like body text, and buttons have zero hover states. This isn't a design—it's a placeholder that forgot to get replaced.",

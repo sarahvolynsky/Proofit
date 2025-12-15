@@ -9,7 +9,8 @@ import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { ChatSession } from "../lib/agent";
 import { ProofitLogo } from "./ProofitLogo";
-import profileImage from "figma:asset/b392a768eb6822970f69608f642904a39287ff75.png";
+// Profile image - Sarah's profile picture
+import profileImage from "../assets/sarahprofile.png";
 
 interface LayoutProps {
   children: React.ReactNode;

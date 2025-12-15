@@ -1,0 +1,13 @@
+# ChatKit Python SDK - requires Python 3.10+
+# Install from GitHub: pip install git+https://github.com/openai/chatkit-python.git
+# Or install from source: git clone https://github.com/openai/chatkit-python.git && cd chatkit-python && pip install .
+# Repository: https://github.com/openai/chatkit-python
+openai>=1.0.0
+openai-agents>=0.3.2
+fastapi
+uvicorn[standard]
+python-multipart
+agents
+pydantic
+jinja2>=3.1,<4
+

@@ -5,7 +5,7 @@ import { ProcessingView } from "./components/ProcessingView";
 import { ChatInterface } from "./components/ChatInterface";
 import { Projects } from "./components/Projects";
 import { Starred } from "./components/Starred";
-import { analyzeCode, CritiqueResult, Goal, ChatSession, Message } from "./lib/agent";
+import { analyzeCode, sendChatMessage, CritiqueResult, Goal, ChatSession, Message } from "./lib/agent";
 
 export default function App() {
   const [status, setStatus] = useState<"idle" | "processing" | "complete" | "projects" | "starred">("idle");
@@ -57,29 +57,75 @@ export default function App() {
       setCurrentSessionId(sessionId);
       setStatus("complete"); // Show chat interface immediately
 
-      // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Generate critique using real API
+      try {
+        const critiqueResult = await analyzeCode(code, goal, attachment || undefined);
+        
+        // Add the critique message to the session
+        // Preserve attachment from user message so image is visible with critique
+        const critiqueMessage: Message = {
+          id: '2',
+          role: 'agent',
+          content: critiqueResult,
+          type: 'critique',
+          attachment: attachment || undefined // Preserve image attachment
+        };
 
-      // Generate mock critique (no backend call)
-      const critiqueResult = await analyzeCode(code, goal, attachment || undefined);
-      
-      // Add the critique message to the session
-      const critiqueMessage: Message = {
-        id: '2',
-        role: 'agent',
-        content: critiqueResult,
-        type: 'critique'
-      };
-
-      setChatSessions(prev => prev.map(session => {
-        if (session.id === sessionId) {
-          return {
-            ...session,
-            messages: [userMessage, critiqueMessage]
+        setChatSessions(prev => prev.map(session => {
+          if (session.id === sessionId) {
+            return {
+              ...session,
+              messages: [userMessage, critiqueMessage]
+            };
+          }
+          return session;
+        }));
+      } catch (error) {
+        // If analyzeCode throws with plain text (for design_question/unknown), treat it as a text message
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        // Check if this is a plain text response (not a real error)
+        // Plain text responses from the agent are typically longer and don't look like error messages
+        const isPlainTextResponse = errorMessage.length > 50 && !errorMessage.includes('Failed to') && !errorMessage.includes('Error');
+        
+        if (isPlainTextResponse) {
+          // This is a plain text response from the agent (asking for more info)
+          const textMessage: Message = {
+            id: '2',
+            role: 'agent',
+            content: errorMessage,
+            type: 'text'
           };
+
+          setChatSessions(prev => prev.map(session => {
+            if (session.id === sessionId) {
+              return {
+                ...session,
+                messages: [userMessage, textMessage]
+              };
+            }
+            return session;
+          }));
+        } else {
+          // This is a real error - show it to the user
+          const errorMsg: Message = {
+            id: '2',
+            role: 'agent',
+            content: `I encountered an error: ${errorMessage}. Please try again.`,
+            type: 'text'
+          };
+
+          setChatSessions(prev => prev.map(session => {
+            if (session.id === sessionId) {
+              return {
+                ...session,
+                messages: [userMessage, errorMsg]
+              };
+            }
+            return session;
+          }));
         }
-        return session;
-      }));
+      }
     } catch (error) {
       console.error('Error during critique:', error);
       setStatus("idle");
@@ -97,6 +143,19 @@ export default function App() {
       attachment: attachment
     };
 
+    // Get messages and goal BEFORE adding the new user message
+    let messagesForContext: Message[] = [];
+    let sessionGoal: Goal = "conversion";
+    
+    setChatSessions(prev => {
+      const session = prev.find(s => s.id === currentSessionId);
+      if (session) {
+        messagesForContext = session.messages; // Messages without the new user message
+        sessionGoal = session.goal;
+      }
+      return prev;
+    });
+
     // Update session with user message
     setChatSessions(prev => prev.map(session => {
       if (session.id === currentSessionId) {
@@ -108,70 +167,49 @@ export default function App() {
       return session;
     }));
 
-    // Check if user is asking for a prompt
-    const isPromptRequest = /generate.*prompt|create.*prompt|get.*prompt|prompt.*this|fix.*prompt/i.test(text);
+    // Use agentic workflow to get response
+    (async () => {
+      try {
+        // Call sendChatMessage with messages (without the new user message) and the text
+        const responseText = await sendChatMessage(messagesForContext, text, sessionGoal, attachment);
+        
+        const agentMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'agent',
+          content: responseText,
+          type: 'text'
+        };
 
-    // Simulate Agent response
-    setTimeout(() => {
-      let responseContent = "I've received your feedback. As this is a prototype, I can't refine the critique further yet, but I've noted your request!";
-      
-      if (isPromptRequest && currentSession) {
-        // Find the critique result in the session messages
-        const critiqueMsg = currentSession.messages.find(m => m.type === 'critique');
-        if (critiqueMsg && typeof critiqueMsg.content !== 'string') {
-          const result = critiqueMsg.content as CritiqueResult;
-          
-          // Generate the fix prompt
-          const issuesList = result.issues.map((issue, i) => 
-            `${i+1}. [${issue.severity}] ${issue.title} (${issue.category.toUpperCase()})
-   Problem: ${issue.problem}
-   Fix Steps:
-${issue.fix_steps.map((step, idx) => `      ${idx + 1}. ${step}`).join('\n')}`
-          ).join("\n\n");
-          
-          responseContent = `You are an expert frontend developer and designer. I need you to apply design critique feedback to improve my React/Tailwind codebase.
+        setChatSessions(prev => prev.map(session => {
+          if (session.id === currentSessionId) {
+            return {
+              ...session,
+              messages: [...session.messages, agentMsg]
+            };
+          }
+          return session;
+        }));
+      } catch (error) {
+        console.error('Error in handleSendMessage:', error);
+        
+        const errorMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'agent',
+          content: "I encountered an error processing your message. Please try again.",
+          type: 'text'
+        };
 
-CRITIQUE SUMMARY:
-${result.roast.one_liner}
-
-OVERALL SCORES:
-• Visual Design: ${result.scores.visual_design}/10
-• UX Clarity: ${result.scores.ux_clarity}/10
-• Code Quality: ${result.scores.code_quality}/10
-• Accessibility: ${result.scores.accessibility}/10
-
-ISSUES TO ADDRESS (${result.issues.length} total):
-
-${issuesList}
-
-REQUIREMENTS:
-1. Apply all the fix steps listed above to the code
-2. Maintain the existing design language and component structure
-3. Use Tailwind CSS utility classes following best practices
-4. Ensure all changes improve accessibility and code quality
-5. Provide the complete updated code with clear comments explaining changes
-
-Please generate the improved React and Tailwind code now.`;
-        }
+        setChatSessions(prev => prev.map(session => {
+          if (session.id === currentSessionId) {
+            return {
+              ...session,
+              messages: [...session.messages, errorMsg]
+            };
+          }
+          return session;
+        }));
       }
-
-      const agentMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'agent',
-        content: responseContent,
-        type: 'text'
-      };
-
-      setChatSessions(prev => prev.map(session => {
-        if (session.id === currentSessionId) {
-          return {
-            ...session,
-            messages: [...session.messages, agentMsg]
-          };
-        }
-        return session;
-      }));
-    }, 1000);
+    })();
   };
 
   const handleSelectSession = (id: string) => {
